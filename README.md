@@ -267,6 +267,18 @@ Probleme-Panel (`Strg+Shift+M`).
 
 ---
 
+## Deployment & Release
+
+Komplette Anleitung in [`docs/2026-05-04-deployment.md`](docs/2026-05-04-deployment.md):
+- Auf das eigene Handy per USB (Debug-Build)
+- Signed Release-APK + Sideload
+- Pflichtarbeiten vor dem Play-Store (Signing-Key, App-Icon, Splash, Permissions, Datenschutzerklaerung)
+- AAB bauen, Play Console einrichten, Listing, Datenschutz-Formular, Release-Stufen
+- Updates ausrollen, Crash-Reports lesen
+- iOS-Kurzanleitung
+- F-Droid und Direkt-APK als Alternativen
+- Pre-Release-Checkliste
+
 ## Release-Build (Android)
 
 Mit Code-Obfuscation und ausgelagerten Debug-Symbolen:
