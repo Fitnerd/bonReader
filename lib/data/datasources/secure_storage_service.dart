@@ -59,7 +59,8 @@ class SecureStorageService {
       );
 
   // ────────────────────────────────────────────────────────────────
-  // Komplettes Wipe (z. B. beim "Account zurücksetzen")
-  // ────────────────────────────────────────────────────────────────
-  Future<void> wipeAll() => _storage.deleteAll();
-}
+  // Auto-Logout-Timeout
+  //
+  // Streng genommen kein „Geheimnis". Wir benutzen Secure Storage
+  // trotzdem, um keinen zweiten Persistenz-Mechanismus einzufuehren.
+  // ────────────────────────────────────────────�

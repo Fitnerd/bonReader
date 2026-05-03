@@ -5,41 +5,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-/// E2E-Smoke-Test: läuft auf einem echten Gerät / Emulator.
-/// Prüft, dass die initiale Route geladen wird und der Übergang
-/// Splash → Login klappt. Wird in späteren Schritten erweitert
-/// (Login → Home → Ausgabe erfassen → Budget aktualisiert).
+/// E2E Happy-Path. Laeuft auf echtem Geraet / Emulator.
+///
+/// Vorbedingung: Auf dem Geraet darf KEIN BonBudget-Account existieren.
+/// (Falls doch, erst manuell deinstallieren oder den Account-Reset
+/// ueber Einstellungen machen.)
+///
+/// Schritte:
+/// 1. App starten → Splash → Register-Screen.
+/// 2. Account anlegen mit „testpasswort1".
+/// 3. Auf Dashboard, „Bon scannen"-FAB sichtbar.
+/// 4. In Budgets navigieren, ein Budget setzen.
+/// 5. Eine Ausgabe manuell erfassen.
+/// 6. Auf Dashboard zurueck und pruefen, dass Restbudget-Anzeige passt.
+///
+/// Hinweis: Der Test nutzt das echte Argon2 (auf dem Geraet ist das OK),
+/// die echte SQLCipher-DB und Secure Storage. Daher MUESSEN diese
+/// Tests am Ende den Account zuruecksetzen, sonst startet der naechste
+/// Lauf von einem bestehenden Account aus.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Splash leitet automatisch zum Login weiter', (tester) async {
+  testWidgets('Happy Path: Register → Budget setzen → Ausgabe → Dashboard',
+      (tester) async {
     await tester.pumpWidget(
       const ProviderScope(child: BonBudgetApp()),
     );
 
-    // Direkt nach Start sehen wir den Splash.
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    // Splash → Register (weil noch kein Account existiert).
+    await tester.pumpAndSettle(const Duration(seconds: 2));
 
-    // Die Weiterleitung im Splash ist auf 300 ms gesetzt.
-    await tester.pumpAndSettle(const Duration(seconds: 1));
-
-    // Jetzt sollten wir auf dem Login-Platzhalter sein.
+    // Falls schon ein Account existiert, koennen wir hier abbrechen –
+    // die Annahme „leeres Geraet" ist Vorbedingung.
     expect(find.text('Willkommen bei ${AppConstants.appName}'), findsOneWidget);
-    expect(find.text('Weiter (Platzhalter)'), findsOneWidget);
-  });
 
-  testWidgets('Login-Platzhalter führt zur Home-Seite', (tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: BonBudgetApp()),
-    );
-
-    await tester.pumpAndSettle(const Duration(seconds: 1));
-
-    await tester.tap(find.text('Weiter (Platzhalter)'));
-    await tester.pumpAndSettle();
-
-    // Home zeigt den AppBar-Titel mit dem App-Namen.
-    expect(find.text(AppConstants.appName), findsWidgets);
-    expect(find.text('Restbudget diesen Monat'), findsOneWidget);
-  });
-}
+    // Passwort eingeben

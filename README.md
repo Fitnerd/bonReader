@@ -6,14 +6,30 @@ Alle Daten bleiben **lokal und verschlüsselt** auf deinem Gerät.
 ## Status
 
 - [x] Schritt 1: Projekt-Setup & Architektur
-- [ ] Schritt 2: Datenmodell & verschlüsselte DB
-- [ ] Schritt 3: Auth-System (Argon2 + Secure Storage + Biometrie)
-- [ ] Schritt 4: Kategorien-Verwaltung & Budgets
-- [ ] Schritt 5: Manuelle Ausgabe-Erfassung
-- [ ] Schritt 6: Bon-Foto + OCR + Positions-Erkennung
-- [ ] Schritt 7: Dashboard & Budget-Anzeige
-- [ ] Schritt 8: Statistik & Diagramme
-- [ ] Schritt 9: Einstellungen, Polish, Release-Vorbereitung
+- [x] Schritt 2: Datenmodell & verschlüsselte DB
+- [x] Schritt 3: Auth-System (Argon2 + Secure Storage + Biometrie)
+- [x] Schritt 4: Kategorien-Verwaltung & Budgets
+- [x] Schritt 5: Manuelle Ausgabe-Erfassung
+- [x] Schritt 6: Bon-Foto + OCR + Positions-Erkennung
+- [x] Schritt 7: Dashboard & Budget-Anzeige
+- [x] Schritt 8: Statistik & Diagramme
+- [x] Schritt 9: Einstellungen, Polish, Release-Vorbereitung
+
+## Features
+
+- **Lokal & verschlüsselt**: SQLCipher (AES-256) + Argon2id-Passwort.
+  Keine Cloud, keine Telemetrie.
+- **Bon scannen**: On-device OCR (Google ML Kit). Foto wird unmittelbar
+  nach Auswertung gelöscht.
+- **Heuristischer Bon-Parser**: Erkennt Händler, Datum, Total und einzelne
+  Positionen aus typischen deutschen Kassenbons.
+- **Manuelle Erfassung**: Wenn kein Bon da ist – Form mit Positionen.
+- **Budgets pro Kategorie**: Gesamtbudget = Summe der Kategorie-Budgets.
+- **Dashboard**: Restbudget-Ring, Auslastung pro Kategorie, letzte Ausgaben.
+- **Statistik**: 12-Monats-Trend, Top-Kategorien-Donut, Monatsvergleich.
+- **Biometrie**: Fingerprint / Face ID als zusätzliche Anmeldung.
+- **Auto-Logout**: konfigurierbar (1–30 Min) und sofort beim Backgrounding.
+- **Account-Reset**: Komplett-Wipe direkt in der App.
 
 ## Voraussetzungen
 
@@ -54,44 +70,27 @@ flutter test --coverage
 flutter test integration_test/
 ```
 
+## Release-Build (Android)
+
+Mit Code-Obfuscation und ausgelagerten Debug-Symbolen:
+
+```bash
+flutter build apk --release \
+  --obfuscate \
+  --split-debug-info=build/symbols/
+
+# oder als App Bundle:
+flutter build appbundle --release \
+  --obfuscate \
+  --split-debug-info=build/symbols/
+```
+
+Der `build/symbols/`-Ordner gehört NICHT in den Play-Store-Upload, aber
+unbedingt **lokal aufbewahren** – sonst sind Crash-Reports unlesbar.
+
 ## Projektstruktur
 
 ```
 lib/
 ├── app.dart               # MaterialApp + Theme + Router
-├── main.dart              # Entry Point, ProviderScope
-├── core/                  # Querschnittsbelange
-│   ├── constants/         # zentrale Konstanten
-│   ├── router/            # go_router Setup
-│   ├── theme/             # Mint-Grün Material-3-Theme
-│   └── utils/             # Helper (Currency, …)
-├── data/                  # (Schritt 2) DB, Repositories
-├── domain/                # (Schritt 2) Entities, Use Cases
-└── presentation/          # UI: Screens + Widgets
-    └── screens/
-
-test/
-├── unit/                  # Pure-Logik-Tests, ohne UI
-└── widget/                # Einzelne Widgets in Isolation
-
-integration_test/          # E2E-Tests auf Gerät / Emulator
-```
-
-## Sicherheit & Datenschutz
-
-Siehe [`docs/2026-05-03-security.md`](docs/2026-05-03-security.md).
-
-Kurzfassung:
-- Passwort wird mit Argon2id gehasht – nie im Klartext gespeichert.
-- Sensible Daten liegen im Android Keystore / iOS Keychain.
-- Datenbank wird mit SQLCipher (AES-256) verschlüsselt.
-- Bon-Fotos werden nach OCR sofort gelöscht.
-- Auto-Logout nach Inaktivität.
-
-## Architektur-Überblick
-
-Siehe [`docs/2026-05-03-architecture.md`](docs/2026-05-03-architecture.md).
-
-## Lizenz
-
-Privates Projekt, alle Rechte vorbehalten.
+├── main.dart      

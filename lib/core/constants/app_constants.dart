@@ -29,13 +29,13 @@ class AppConstants {
   static const int argon2HashLength = 32;
   static const int argon2SaltLength = 16;
 
+  /// Erlaubter Bereich fuer Auto-Logout (in Minuten).
+  static const int minAutoLogoutMinutes = 1;
+  static const int maxAutoLogoutMinutes = 30;
+
   /// Schlüssel für Secure Storage. NICHT die Werte selbst, nur die Keys.
   static const String secureKeyDbPassphrase = 'bonbudget.db.passphrase';
   static const String secureKeyAuthHash = 'bonbudget.auth.hash';
   static const String secureKeyAuthSalt = 'bonbudget.auth.salt';
   static const String secureKeyBiometricEnabled = 'bonbudget.auth.biometric';
-
-  /// Datenbankname (wird im App-internen Documents-Ordner gespeichert).
-  static const String databaseFileName = 'bonbudget.db';
-  static const int databaseVersion = 1;
-}
+  static const String secu

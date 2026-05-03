@@ -16,6 +16,7 @@ import '../categories/categories_screen.dart';
 import '../expense/expense_form_screen.dart';
 import '../expense/expenses_list_screen.dart';
 import '../expense/receipt_scan_screen.dart';
+import '../settings/settings_screen.dart';
 import '../stats/stats_screen.dart';
 
 /// Echte Startseite. Zeigt:
@@ -582,6 +583,17 @@ class _DashboardDrawer extends StatelessWidget {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => const CategoriesScreen(),
+                ));
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings_rounded),
+              title: const Text('Einstellungen'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const SettingsScreen(),
                 ));
               },
             ),

@@ -43,7 +43,5 @@ class FakeSecureStorageService implements SecureStorageService {
   }
 
   @override
-  Future<void> wipeAll() async {
-    _store.clear();
-  }
-}
+  Future<int> readAutoLogoutMinutes() async {
+    final raw
