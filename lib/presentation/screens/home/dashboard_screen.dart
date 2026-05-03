@@ -16,6 +16,7 @@ import '../categories/categories_screen.dart';
 import '../expense/expense_form_screen.dart';
 import '../expense/expenses_list_screen.dart';
 import '../expense/receipt_scan_screen.dart';
+import '../stats/stats_screen.dart';
 
 /// Echte Startseite. Zeigt:
 ///  - Restbudget oben (Ring + Auslastungs-Prozent)
@@ -36,6 +37,15 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(AppConstants.appName),
         actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded),
+            tooltip: 'Statistik',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => const StatsScreen(),
+              ));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
             tooltip: 'Monat waehlen',
@@ -552,6 +562,16 @@ class _DashboardDrawer extends StatelessWidget {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => const BudgetScreen(),
+                ));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart_rounded),
+              title: const Text('Statistik'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const StatsScreen(),
                 ));
               },
             ),

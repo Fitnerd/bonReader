@@ -83,3 +83,99 @@ final spentByCategoryInSelectedMonthProvider =
   }
   return map;
 });
+
+/// Tagesdurchschnitt im ausgewaehlten Monat.
+/// Bezugsgroesse: Anzahl der bisher vergangenen Tage im Monat
+/// (im aktuellen Monat) bzw. Tage des Monats (in vergangenen Monaten).
+final dailyAverageCentsProvider = Provider<int>((ref) {
+  final spent = ref.watch(totalSpentInSelectedMonthProvider);
+  final month = ref.watch(selectedMonthProvider);
+  final now = DateTime.now();
+  final isCurrent = month.year == now.year && month.month == now.month;
+  final lastDayOfMonth = DateTime(month.year, month.month + 1, 0).day;
+  final divisor = isCurrent ? now.day : lastDayOfMonth;
+  if (divisor <= 0) return 0;
+  return (spent / divisor).round();
+});
+
+/// Eintrag in der Trendliste „letzte N Monate".
+class MonthlyTotal {
+  const MonthlyTotal({required this.month, required this.totalCents});
+  final DateTime month;
+  final int totalCents;
+}
+
+/// Liste der letzten 12 Monate mit Summe pro Monat,
+/// chronologisch (aelteste zuerst).
+final monthlyTotalsProvider = Provider<List<MonthlyTotal>>((ref) {
+  final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
+  final selected = ref.watch(selectedMonthProvider);
+  final months = <DateTime>[
+    for (int i = 11; i >= 0; i--)
+      DateTime(selected.year, selected.month - i),
+  ];
+  return <MonthlyTotal>[
+    for (final m in months)
+      MonthlyTotal(
+        month: m,
+        totalCents: all
+            .where((e) =>
+                e.occurredAt.year == m.year && e.occurredAt.month == m.month)
+            .fold<int>(0, (sum, e) => sum + e.totalCents),
+      ),
+  ];
+});
+
+/// Vergleich: aktueller vs. Vormonat.
+class MonthOverMonth {
+  const MonthOverMonth({
+    required this.currentCents,
+    required this.previousCents,
+  });
+
+  final int currentCents;
+  final int previousCents;
+
+  int get diffCents => currentCents - previousCents;
+
+  /// Prozentuale Differenz (Vormonat = Basis). Null, wenn Basis == 0.
+  double? get diffPercent {
+    if (previousCents == 0) return null;
+    return (diffCents / previousCents) * 100;
+  }
+}
+
+final monthOverMonthProvider = Provider<MonthOverMonth>((ref) {
+  final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
+  final selected = ref.watch(selectedMonthProvider);
+  final prev = DateTime(selected.year, selected.month - 1);
+
+  int sumFor(DateTime m) {
+    return all
+        .where((e) =>
+            e.occurredAt.year == m.year && e.occurredAt.month == m.month)
+        .fold<int>(0, (s, e) => s + e.totalCents);
+  }
+
+  return MonthOverMonth(
+    currentCents: sumFor(selected),
+    previousCents: sumFor(prev),
+  );
+});
+
+/// Top-Kategorien im ausgewaehlten Monat (sortiert, mit cents).
+class CategorySpend {
+  const CategorySpend({required this.categoryId, required this.totalCents});
+  final String categoryId;
+  final int totalCents;
+}
+
+final topCategoriesInSelectedMonthProvider =
+    Provider<List<CategorySpend>>((ref) {
+  final byCat = ref.watch(spentByCategoryInSelectedMonthProvider);
+  final list = byCat.entries
+      .map((e) => CategorySpend(categoryId: e.key, totalCents: e.value))
+      .toList()
+    ..sort((a, b) => b.totalCents.compareTo(a.totalCents));
+  return list;
+});
