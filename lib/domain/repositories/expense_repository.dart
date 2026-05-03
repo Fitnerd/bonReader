@@ -1,5 +1,4 @@
 import '../entities/expense.dart';
-import '../entities/expense_item.dart';
 
 class ExpenseDraft {
   ExpenseDraft({

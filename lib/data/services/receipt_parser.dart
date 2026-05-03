@@ -81,7 +81,8 @@ class ReceiptParser {
         .toList(growable: false);
 
     final merchant = _detectMerchant(cleanedLines);
-    final date = _detectDate(cleanedLines) ?? fallbackDate ?? DateTime.now();
+    final detectedDate = _detectDate(cleanedLines);
+    final date = detectedDate ?? fallbackDate ?? DateTime.now();
     final totalCents = _detectTotalCents(cleanedLines);
     final items = _detectItems(cleanedLines);
 
@@ -90,7 +91,7 @@ class ReceiptParser {
     final effectiveTotal = totalCents ?? fallbackTotal;
 
     var confidence = 0.0;
-    if (date != null) confidence += 0.25;
+    if (detectedDate != null) confidence += 0.25;
     if (totalCents != null) confidence += 0.4;
     if (items.isNotEmpty) confidence += 0.25;
     if (merchant.isNotEmpty) confidence += 0.1;

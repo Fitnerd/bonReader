@@ -52,7 +52,7 @@ class Argon2PasswordHasher implements PasswordHasher {
       version: Argon2Version.V13,
     );
     return HashedPassword(
-      hashBase64: base64Encode(result.rawHash),
+      hashBase64: base64Encode(result.hashBytes),
       saltBase64: base64Encode(salt.bytes),
     );
   }
@@ -75,7 +75,7 @@ class Argon2PasswordHasher implements PasswordHasher {
       type: Argon2Type.id,
       version: Argon2Version.V13,
     );
-    final computed = base64Encode(result.rawHash);
+    final computed = base64Encode(result.hashBytes);
     return _constantTimeEquals(computed, storedHashBase64);
   }
 

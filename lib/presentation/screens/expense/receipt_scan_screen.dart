@@ -95,6 +95,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         );
       }
 
+      if (!mounted) return;
       await Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
         builder: (_) => ExpenseFormScreen(prefill: prefill),
       ));

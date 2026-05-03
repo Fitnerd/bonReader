@@ -65,7 +65,7 @@ class SettingsScreen extends ConsumerWidget {
           _SectionTitle(label: 'Ueber', theme: theme),
           ListTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: Text('Ueber ${AppConstants.appName}'),
+            title: const Text('Ueber ${AppConstants.appName}'),
             subtitle: const Text('Lokal, privacy-first, keine Cloud.'),
             onTap: () => showAboutDialog(
               context: context,
