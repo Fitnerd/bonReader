@@ -1,0 +1,80 @@
+name: bonbudget
+description: "Lokaler Bon- und Budget-Tracker mit OCR-Erkennung. Privacy-first, alles bleibt auf deinem Gerät."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Lokale, verschlüsselte Datenbank (SQLCipher)
+  sqflite_sqlcipher: ^3.1.0+1
+  path: ^1.9.0
+  path_provider: ^2.1.3
+
+  # Sicheres Speichern (Android Keystore / iOS Keychain)
+  flutter_secure_storage: ^9.2.2
+
+  # Passwort-Hashing (Argon2id)
+  dargon2_flutter: ^3.2.0
+
+  # Biometrische Authentifizierung
+  local_auth: ^2.3.0
+
+  # Kamera / Galerie für Bon-Fotos
+  image_picker: ^1.1.2
+
+  # On-device OCR (Google ML Kit)
+  google_mlkit_text_recognition: ^0.14.0
+
+  # Diagramme
+  fl_chart: ^0.68.0
+
+  # Formatierung von Zahlen / Datum
+  # Pinned von flutter_localizations (Flutter SDK) – siehe pub get Hinweis.
+  intl: ^0.20.2
+
+  # Logging
+  logger: ^2.3.0
+
+  # UUID
+  uuid: ^4.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+  # Linting
+  flutter_lints: ^4.0.0
+
+  # Code-Generierung (für Riverpod & Freezed)
+  build_runner: ^2.4.11
+  riverpod_generator: ^2.4.0
+  custom_lint: ^0.6.4
+  riverpod_lint: ^2.3.10
+
+  # Testing
+  mocktail: ^1.0.4
+  # In-Memory-SQLite fuer Repository-Unit-Tests (kein SQLCipher noetig
+  # auf dem Host – Tests pruefen Schema und Logik, nicht Verschluesselung).
+  sqflite_common_ffi: ^2.3.3
+
+flutter:
+  uses-material-design: true
+  # assets:
+  #   - assets/images/
