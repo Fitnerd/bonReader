@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/auth_providers.dart';
+import '../../core/providers/data_providers.dart';
 
 /// Aktueller Anmelde-Status.
 enum AuthStatus {
@@ -64,8 +65,16 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   Future<AuthState> build() async {
     final repo = await ref.watch(authRepositoryProvider.future);
     final has = await repo.hasAccount();
+
+    // Persistierte Brute-Force-Daten laden.
+    final storage = ref.read(secureStorageProvider);
+    final attempts = await storage.readFailedAttempts();
+    final cooldown = await storage.readCooldownUntil();
+
     return AuthState(
       status: has ? AuthStatus.loggedOut : AuthStatus.noAccount,
+      failedAttempts: attempts,
+      cooldownUntil: cooldown,
     );
   }
 
@@ -105,7 +114,12 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     final repo = await ref.read(authRepositoryProvider.future);
     final ok = await repo.verifyPassword(password);
 
+    final storage = ref.read(secureStorageProvider);
+
     if (ok) {
+      // Erfolgreicher Login → Zaehler zuruecksetzen + Zeitstempel merken.
+      await storage.clearLoginAttempts();
+      await storage.writeLastPasswordLogin(DateTime.now());
       state = const AsyncValue.data(
         AuthState(status: AuthStatus.authenticated),
       );
@@ -113,14 +127,30 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     }
 
     final attempts = current.failedAttempts + 1;
-    final cooldown = attempts >= AppConstants.maxLoginAttempts
-        ? DateTime.now().add(AppConstants.loginCooldown)
-        : null;
+
+    Duration? cooldownDuration;
+    DateTime? cooldown;
+    if (attempts >= AppConstants.maxLoginAttempts) {
+      // Exponentielles Backoff: Berechne den Cooldown-Zyklus.
+      // Zyklus 0 = erster Cooldown, Zyklus 1 = zweiter, usw.
+      final cycle =
+          (attempts ~/ AppConstants.maxLoginAttempts) - 1;
+      final multipliers = AppConstants.cooldownMultipliers;
+      final multiplier =
+          multipliers[cycle.clamp(0, multipliers.length - 1)];
+      cooldownDuration = AppConstants.loginCooldown * multiplier;
+      cooldown = DateTime.now().add(cooldownDuration);
+    }
+
+    // Fehlversuche und Cooldown persistent speichern, damit ein App-Neustart
+    // den Zaehler nicht zuruecksetzt.
+    await storage.writeFailedAttempts(attempts);
+    await storage.writeCooldownUntil(cooldown);
 
     state = AsyncValue.data(AuthState(
       status: AuthStatus.loggedOut,
       errorMessage: cooldown != null
-          ? 'Zu viele Fehlversuche. ${AppConstants.loginCooldown.inMinutes} Min Pause.'
+          ? 'Zu viele Fehlversuche. ${cooldownDuration!.inMinutes} Min Pause.'
           : 'Falsches Passwort.',
       failedAttempts: attempts,
       cooldownUntil: cooldown,
@@ -133,11 +163,33 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     final auth = await repo.getAuth();
     if (auth == null || !auth.biometricEnabled) return false;
 
+    // Pruefen, ob seit dem letzten Passwort-Login mehr als 72h vergangen
+    // sind. Wenn ja, muss das Passwort eingegeben werden (wie Banking-Apps).
+    final storage = ref.read(secureStorageProvider);
+    final lastPwLogin = await storage.readLastPasswordLogin();
+    if (lastPwLogin != null) {
+      final elapsed = DateTime.now().difference(lastPwLogin);
+      if (elapsed > AppConstants.biometricPasswordRequiredAfter) {
+        state = AsyncValue.data(
+          (state.value ?? const AuthState(status: AuthStatus.loggedOut))
+              .copyWith(
+            errorMessage:
+                'Aus Sicherheitsgruenden bitte Passwort eingeben '
+                '(letzte Eingabe vor mehr als '
+                '${AppConstants.biometricPasswordRequiredAfter.inHours}h).',
+          ),
+        );
+        return false;
+      }
+    }
+
     final biometric = ref.read(biometricServiceProvider);
     final ok = await biometric.authenticate(
       localizedReason: 'Mit Biometrie anmelden',
     );
     if (ok) {
+      // Erfolgreicher Login → Zaehler zuruecksetzen.
+      await storage.clearLoginAttempts();
       state = const AsyncValue.data(
         AuthState(status: AuthStatus.authenticated),
       );

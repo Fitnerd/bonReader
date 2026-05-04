@@ -89,6 +89,58 @@ class SecureStorageService {
   }
 
   // ────────────────────────────────────────────────────────────────
+  // Brute-Force-Schutz (persistente Fehlversuche + Cooldown)
+  // ────────────────────────────────────────────────────────────────
+  Future<int> readFailedAttempts() async {
+    final raw =
+        await _storage.read(key: AppConstants.secureKeyFailedAttempts);
+    return int.tryParse(raw ?? '') ?? 0;
+  }
+
+  Future<void> writeFailedAttempts(int count) => _storage.write(
+        key: AppConstants.secureKeyFailedAttempts,
+        value: count.toString(),
+      );
+
+  Future<DateTime?> readCooldownUntil() async {
+    final raw =
+        await _storage.read(key: AppConstants.secureKeyCooldownUntil);
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> writeCooldownUntil(DateTime? until) async {
+    if (until == null) {
+      await _storage.delete(key: AppConstants.secureKeyCooldownUntil);
+    } else {
+      await _storage.write(
+        key: AppConstants.secureKeyCooldownUntil,
+        value: until.toIso8601String(),
+      );
+    }
+  }
+
+  Future<void> clearLoginAttempts() async {
+    await _storage.delete(key: AppConstants.secureKeyFailedAttempts);
+    await _storage.delete(key: AppConstants.secureKeyCooldownUntil);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Letzter Passwort-Login (fuer Biometrie-Erzwingung nach 72h)
+  // ────────────────────────────────────────────────────────────────
+  Future<DateTime?> readLastPasswordLogin() async {
+    final raw =
+        await _storage.read(key: AppConstants.secureKeyLastPasswordLogin);
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> writeLastPasswordLogin(DateTime time) => _storage.write(
+        key: AppConstants.secureKeyLastPasswordLogin,
+        value: time.toIso8601String(),
+      );
+
+  // ────────────────────────────────────────────────────────────────
   // Komplettes Wipe (z. B. beim "Account zurücksetzen")
   // ────────────────────────────────────────────────────────────────
   Future<void> wipeAll() => _storage.deleteAll();

@@ -18,8 +18,14 @@ class AppConstants {
   /// Maximale Anzahl Login-Fehlversuche, bevor eine Pause erzwungen wird.
   static const int maxLoginAttempts = 5;
 
-  /// Pause nach zu vielen Fehlversuchen.
+  /// Pause nach zu vielen Fehlversuchen (erstes Mal).
+  /// Das tatsaechliche Cooldown steigt exponentiell:
+  /// 1 Min → 5 Min → 15 Min → 60 Min.
   static const Duration loginCooldown = Duration(minutes: 1);
+
+  /// Exponentielles Backoff: Multiplikatoren fuer aufeinanderfolgende
+  /// Cooldowns (basierend auf der Anzahl der Cooldown-Zyklen).
+  static const List<int> cooldownMultipliers = <int>[1, 5, 15, 60];
 
   /// Argon2id-Parameter (RFC 9106 empfiehlt mindestens diese Werte
   /// fuer interaktive Anmeldung auf mobilen Geraeten).
@@ -39,9 +45,24 @@ class AppConstants {
   static const String secureKeyAuthSalt = 'bonbudget.auth.salt';
   static const String secureKeyBiometricEnabled = 'bonbudget.auth.biometric';
   static const String secureKeyAutoLogoutMin = 'bonbudget.auth.autologout.min';
+  static const String secureKeyFailedAttempts = 'bonbudget.auth.failed_attempts';
+  static const String secureKeyCooldownUntil = 'bonbudget.auth.cooldown_until';
+  static const String secureKeyLastPasswordLogin =
+      'bonbudget.auth.last_password_login';
+
+  /// Nach dieser Dauer muss auch bei aktivierter Biometrie das Passwort
+  /// erneut eingegeben werden (Defence-in-Depth, wie bei Banking-Apps).
+  static const Duration biometricPasswordRequiredAfter =
+      Duration(hours: 72);
 
   /// Datenbankname (wird im App-internen Documents-Ordner gespeichert).
   static const String databaseFileName = 'bonbudget.db';
+
+  // TODO(security): Export-Verschluesselung.
+  // Falls ein CSV-/JSON-Export oder Cloud-Backup implementiert wird,
+  // muessen die exportierten Daten mit einem vom Nutzerpasswort
+  // abgeleiteten Key (Argon2) oder einem separaten Export-Passwort
+  // verschluesselt werden. Klartextexporte waeren ein Sicherheitsrisiko.
 
   /// Datenbank-Versionierung.
   /// V1: initiales Schema.
