@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Netzwerk-Sicherheitskonfiguration fuer BonBudget.
+  Cleartext-Traffic (HTTP) wird global verboten.
+  Die App ist offline-first, aber ML Kit kann Model-Downloads starten.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

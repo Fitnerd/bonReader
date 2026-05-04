@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31) data extraction rules.
+  BonBudget speichert sensible Finanzdaten – daher weder Cloud- noch
+  Device-to-Device-Backup erlaubt.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Nichts sichern -->
+    </cloud-backup>
+    <device-transfer>
+        <!-- Nichts uebertragen -->
+    </device-transfer>
+</data-extraction-rules>
