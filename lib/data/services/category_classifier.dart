@@ -4,12 +4,15 @@ import '../../domain/repositories/expense_repository.dart';
 /// Bon-Positionen wird die wahrscheinlichste Kategorie abgeleitet.
 ///
 /// Vorgehen:
-///   * Lookup-Tabelle mit Substring-Patterns -> Kategorie-Slug.
+///   * Lookup-Tabelle mit Patterns -> Kategorie-Slug.
 ///     Slugs sind die LOWERCASE-Namen der Default-Kategorien
 ///     (`lebensmittel`, `drogerie`, `restaurant`, `tanken`, ...).
-///   * Pro Item zaehlen wir Treffer pro Slug.
-///   * Sieger = Slug mit meisten Treffern. Bei Gleichstand gewinnt
-///     der zuerst gefundene.
+///   * Patterns werden als Wort-Boundary-RegExp gematcht
+///     (`\bPATTERN\b`, case-insensitive). Damit triggert z.B.
+///     `OEL` nicht in `VOELLIG`, `TK` nicht in `STAATLICH`.
+///   * Pro Item maximal EIN Slug-Treffer (das erste Match).
+///   * Sieger = Slug mit den meisten Treffern. Bei Gleichstand
+///     gewinnt der zuerst gefundene.
 ///   * Kein einziger Treffer -> null (Caller faellt auf seine
 ///     bisherige Default-Auswahl zurueck).
 ///
@@ -20,87 +23,88 @@ import '../../domain/repositories/expense_repository.dart';
 class CategoryClassifier {
   const CategoryClassifier();
 
-  /// Patterns sind alles UPPERCASE, weil wir gegen `.toUpperCase()`
-  /// matchen. Reihenfolge spielt keine Rolle - wir zaehlen nur
-  /// Treffer.
-  static const Map<String, List<String>> _patterns = <String, List<String>>{
+  /// Rohe Pattern-Strings pro Slug. Werden in [_compiledPatterns]
+  /// einmalig in RegExp mit `\b...\b` und case-insensitive gemappt.
+  static const Map<String, List<String>> _rawPatterns =
+      <String, List<String>>{
     'lebensmittel': <String>[
       // Brot/Backwaren
-      'BROT', 'BROETCHEN', 'BRÖTCHEN', 'TOAST', 'KNAECKE', 'BAGUETTE',
+      'BROT', 'BROETCHEN', 'BROETCHEN', 'TOAST', 'KNAECKE', 'BAGUETTE',
       'CROISSANT', 'BREZEL', 'KUCHEN', 'TORTE', 'KEKS',
       // Milchprodukte
-      'MILCH', 'BUTTER', 'JOGHURT', 'KAESE', 'KÄSE', 'GOUDA', 'QUARK',
+      'MILCH', 'BUTTER', 'JOGHURT', 'KAESE', 'GOUDA', 'QUARK',
       'SAHNE', 'SKYR', 'KEFIR', 'MOZZARELLA', 'GRANA', 'PARMESAN',
-      'CREME FRAICHE', 'FRISCHKAESE', 'FRISCHKÄSE',
+      'FRISCHKAESE',
       // Obst/Gemuese
-      'TOMATE', 'GURKE', 'KAROTTE', 'KAROTTINI', 'PAPRIKA', 'SALAT',
-      'APFEL', 'BIRNE', 'BANANE', 'ORANGE', 'KARTOFFEL', 'ZWIEBEL',
-      'LAUCH', 'PORREE', 'KOHL', 'ROTKOHL', 'WIRSING', 'BROKKOLI',
-      'BLUMENKOHL', 'AVOCADO', 'PILZ', 'CHAMPIGNON', 'OBST', 'GEMUESE',
-      'GEMÜSE', 'PAKCHOI', 'SPROSSEN', 'HEIDELBEE', 'BEERE', 'TRAUBE',
+      'TOMATE', 'TOMATEN', 'GURKE', 'KAROTTE', 'KAROTTINI', 'PAPRIKA',
+      'SALAT', 'APFEL', 'BIRNE', 'BANANE', 'ORANGE', 'KARTOFFEL',
+      'ZWIEBEL', 'LAUCH', 'PORREE', 'KOHL', 'ROTKOHL', 'WIRSING',
+      'BROKKOLI', 'BLUMENKOHL', 'AVOCADO', 'PILZ', 'CHAMPIGNON',
+      'OBST', 'GEMUESE', 'PAKCHOI', 'SPROSSEN', 'HEIDELBEE', 'BEERE',
+      'TRAUBE',
       // Fleisch/Wurst/Fisch
       'FLEISCH', 'WURST', 'SCHINKEN', 'SALAMI', 'GULASCH', 'STEAK',
-      'HACK', 'HAEHNCHEN', 'HÄHNCHEN', 'HUHN', 'PUTE', 'RIND',
-      'SCHWEIN', 'LACHS', 'FORELLE', 'THUNFISCH', 'FISCH',
+      'HACK', 'HAEHNCHEN', 'HUHN', 'PUTE', 'RIND', 'SCHWEIN', 'LACHS',
+      'FORELLE', 'THUNFISCH', 'FISCH',
       // Vegan/Veggie
-      'TOFU', 'SEITAN', 'VEG.', 'VEGAN', 'PLANTED', 'WIENER',
+      'TOFU', 'SEITAN', 'VEG', 'VEGAN', 'PLANTED', 'WIENER',
       // Trockenware
       'REIS', 'NUDEL', 'PASTA', 'PENNE', 'TAGLIATELLE', 'SPAGHETTI',
-      'TORTI', 'FARFALLE', 'COLLEZ', 'MEHL', 'ZUCKER', 'SALZ', 'OEL',
-      'ÖL', 'ESSIG', 'SENF', 'KETCHUP', 'MAYO', 'PESTO', 'TOMAT',
+      'TORTI', 'FARFALLE', 'COLLEZ', 'MEHL', 'ZUCKER', 'SALZ',
+      'OLIVENOEL', 'RAPSOEL', 'SPEISEOEL', 'SONNENBLUMENOEL',
+      'ESSIG', 'SENF', 'KETCHUP', 'MAYO', 'PESTO', 'TOMAT',
       'BOHNEN', 'LINSEN', 'KICHER', 'CHILI', 'OREGANO', 'BASILIK',
-      'GEWUERZ', 'GEWÜRZ',
+      'GEWUERZ',
       // Eier
-      'EIER', 'EI ', 'BIO EIER',
-      // Konserven/Tiefkuehl
-      'KONSERVE', 'TK', 'TIEFKUEHL', 'TIEFKÜHL', 'DOSE',
-      // Getraenke (Lebensmittel-Kategorie passt am ehesten)
+      'EIER', 'BIO EIER',
+      // Konserven/Tiefkuehl - 'TK' nur als ganzes Wort, dank \b\b sicher
+      'KONSERVE', 'TK', 'TIEFKUEHL', 'DOSE',
+      // Getraenke
       'WASSER', 'SAFT', 'COLA', 'LIMO', 'EISTEE', 'KAFFEE', 'TEE',
-      'GRUENTEE', 'GRÜNTEE', 'MATCHA', 'MINERALWASSER', 'VOLVIC',
-      'SPRUDEL', 'APFELSCHORLE', 'BIER', 'WEIN', 'SEKT',
+      'GRUENTEE', 'MATCHA', 'MINERALWASSER', 'VOLVIC', 'SPRUDEL',
+      'APFELSCHORLE', 'BIER', 'WEIN', 'SEKT',
       // Snacks/Suess
       'CHIPS', 'FLIPS', 'SCHOKOLADE', 'NUSS', 'MANDEL', 'CASHEW',
-      'MUESLI', 'MÜSLI', 'CEREAL', 'HAFER', 'CORNFLAKES', 'POPCORN',
+      'MUESLI', 'CEREAL', 'HAFER', 'CORNFLAKES', 'POPCORN',
       'BONBON', 'GUMMI',
-      // Sonstiges Lebensmittel-Marker
+      // Pfand & Gemuese-Kuerzel
       'PFAND', 'LEERGUT', 'EINWEGPFAND', 'MEHRWEGPFAND',
-      'SUPPENGRUEN', 'SUPPENGRÜN',
+      'SUPPENGRUEN',
       // Aufstrich
-      'NUTELLA', 'MUS', 'MARMELADE', 'HONIG', 'MANDELMUS',
+      'NUTELLA', 'MARMELADE', 'HONIG', 'MANDELMUS', 'NUSSMUS',
     ],
     'drogerie': <String>[
       'ZAHNPASTA', 'ELMEX', 'COLGATE', 'SENSODYNE', 'AJONA',
-      'ZAHNBUERSTE', 'ZAHNBÜRSTE', 'ZAHNSEIDE',
-      'SHAMPOO', 'SPUELUNG', 'SPÜLUNG', 'CONDITIONER',
-      'DUSCHGEL', 'SEIFE', 'DEO', 'DEOSPRAY', 'PARFUEM', 'PARFÜM',
+      'ZAHNBUERSTE', 'ZAHNSEIDE',
+      'SHAMPOO', 'SPUELUNG', 'CONDITIONER',
+      'DUSCHGEL', 'SEIFE', 'DEO', 'DEOSPRAY', 'PARFUEM',
       'CREME', 'BODYLOTION', 'LOTION', 'HANDCREME',
       'WINDEL', 'PAMPERS', 'BABYNAHRUNG',
-      'TOILETTENPAPIER', 'TOILETTEN', 'KLOPAPIER', 'TASCHENTUCH',
+      'TOILETTENPAPIER', 'KLOPAPIER', 'TASCHENTUCH',
       'TAMPONS', 'BINDEN', 'HYGIENE',
-      'WASCHMITTEL', 'WEICHSPUELER', 'WEICHSPÜLER', 'PUTZMITTEL',
-      'SPUELI', 'SPÜLI', 'GESCHIRRSPUEL',
-      'MUELLBEUTEL', 'MUELLBTL', 'MÜLLBEUTEL', 'OEKO',
+      'WASCHMITTEL', 'WEICHSPUELER', 'PUTZMITTEL',
+      'SPUELI', 'GESCHIRRSPUEL',
+      'MUELLBEUTEL', 'MUELLBTL', 'OEKO',
       'RASIERER', 'KLINGEN', 'GILLETTE', 'NIVEA',
       'TABLETTE', 'VITAMIN', 'ASPIRIN', 'IBUPROFEN',
     ],
     'restaurant': <String>[
-      'ZU GO', 'TO GO', 'KAFFEE TO GO', 'ESPRESSO', 'CAPPUCCINO',
-      'LATTE', 'POMMES', 'BURGER', 'DOENER', 'DÖNER', 'KEBAB',
-      'PIZZERIA', 'TRINKGELD',
+      'TO GO', 'ESPRESSO', 'CAPPUCCINO', 'LATTE', 'POMMES', 'BURGER',
+      'DOENER', 'KEBAB', 'PIZZERIA', 'TRINKGELD',
     ],
     'tanken': <String>[
       'BENZIN', 'DIESEL', 'SUPER', 'E10', 'E5', 'PREMIUM',
-      'KRAFTSTOFF', 'OEL ', 'AUTOWAESCHE', 'AUTOWÄSCHE',
+      'KRAFTSTOFF', 'AUTOWAESCHE',
     ],
     'wohnen': <String>[
       'IKEA', 'BAUMARKT', 'HORNBACH', 'OBI', 'TOOM',
       'SCHRAUBE', 'NAGEL', 'WERKZEUG', 'FARBE',
-      'GARDINE', 'TEPPICH', 'KISSEN', 'BETTWAESCHE', 'BETTWÄSCHE',
+      'GARDINE', 'TEPPICH', 'KISSEN', 'BETTWAESCHE',
     ],
     'kleidung': <String>[
       'HEMD', 'HOSE', 'JEANS', 'PULLOVER', 'SHIRT', 'T-SHIRT',
       'JACKE', 'MANTEL', 'SCHUHE', 'SOCKEN', 'STRUMPF',
-      'UNTERWAESCHE', 'UNTERWÄSCHE',
+      'UNTERWAESCHE',
     ],
     'freizeit': <String>[
       'KINO', 'TICKET', 'SPIEL', 'BUCH', 'ROMAN', 'ZEITSCHRIFT',
@@ -108,18 +112,34 @@ class CategoryClassifier {
     ],
   };
 
+  /// Compile-Once Cache der RegExps mit Wort-Boundary-Matching.
+  static final Map<String, List<RegExp>> _patterns = _compile();
+
+  static Map<String, List<RegExp>> _compile() {
+    final out = <String, List<RegExp>>{};
+    for (final e in _rawPatterns.entries) {
+      out[e.key] = e.value
+          .map((p) => RegExp(
+                r'\b' + RegExp.escape(p) + r'\b',
+                caseSensitive: false,
+              ))
+          .toList(growable: false);
+    }
+    return out;
+  }
+
   /// Liefert den Kategorie-Slug, der am besten zu den Items passt,
   /// oder `null` wenn kein Item irgendein Pattern getroffen hat.
   String? suggestSlug(List<ExpenseItemDraft> items) {
     if (items.isEmpty) return null;
     final votes = <String, int>{};
     for (final item in items) {
-      final upper = item.name.toUpperCase();
+      final name = item.name;
       // Pro Item maximal EINEN Slug zaehlen (das erste Match), damit
       // nicht ein einzelner Item-Name mit mehreren Patterns das
       // Ranking dominiert.
       for (final entry in _patterns.entries) {
-        if (entry.value.any(upper.contains)) {
+        if (entry.value.any((re) => re.hasMatch(name))) {
           votes[entry.key] = (votes[entry.key] ?? 0) + 1;
           break;
         }
