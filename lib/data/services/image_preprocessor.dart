@@ -36,7 +36,16 @@ class DefaultImagePreprocessor implements ImagePreprocessor {
   @override
   Future<File> processInPlace(File source) async {
     final bytes = await source.readAsBytes();
-    var image = img.decodeImage(bytes);
+    // decodeImage kann bei sehr kleinen oder kaputten Inputs eine
+    // Exception werfen (z.B. RangeError im PSD-Detektor) statt null
+    // zurueckzugeben. Wir fangen das ab und behandeln es wie 'kein
+    // Bild' - die Originaldatei wird unveraendert weitergereicht.
+    img.Image? image;
+    try {
+      image = img.decodeImage(bytes);
+    } catch (_) {
+      image = null;
+    }
     if (image == null) {
       // Konnte nicht decodiert werden -> unveraendert lassen, ML Kit
       // soll selber sein Glueck versuchen.
