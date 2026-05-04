@@ -15,6 +15,12 @@ import '../secure_storage_service.dart';
 /// aendern, ohne die DB neu zu verschluesseln. Schutz vor physischem
 /// Zugriff auf die DB-Datei kommt aus dem Secure Storage selbst,
 /// der vom Betriebssystem hardwaregestuetzt verschluesselt ist.
+///
+/// TODO(security): Key-Rotation implementieren. Langfristig sollte die
+/// DB-Passphrase bei Passwortwechsel rotiert werden koennen.
+/// SQLCipher unterstuetzt `PRAGMA rekey` – die alte Passphrase oeffnet
+/// die DB, dann wird mit `rekey` auf die neue umgestellt. Aktuell ist
+/// das kein direktes Risiko, da die Passphrase im Secure Storage liegt.
 class DatabasePassphraseService {
   DatabasePassphraseService(this._storage);
 
