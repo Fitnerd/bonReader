@@ -64,6 +64,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   bool _saving = false;
 
+  /// 'Nur Gesamtbetrag'-Modus: Items werden ignoriert und beim Speichern
+  /// nicht persistiert. Default wird in initState() abhaengig von Edit/
+  /// Prefill/Neu-Modus berechnet.
+  bool _summarizeOnly = false;
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +95,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         _items.add(_ItemDraft.fromDraft(i));
       }
     }
+    // Default-Modus:
+    //   Edit: 'nur Gesamt' wenn die existierende Ausgabe keine Items hat.
+    //   Prefill (OCR): immer 'mit Positionen' - der Scan hat ja was geliefert.
+    //   Neu/leer: 'mit Positionen' (User kann manuell adden).
+    _summarizeOnly = (existing != null) && existing.items.isEmpty;
   }
 
   @override
@@ -110,10 +120,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   int? get _effectiveTotalCents {
     // Manuelle Eingabe hat Vorrang. Wenn das Feld leer ist UND Positionen
-    // existieren, faellt es auf die Item-Summe zurueck.
+    // existieren UND wir nicht im Nur-Gesamt-Modus sind, faellt es auf
+    // die Item-Summe zurueck.
     final manual = CurrencyFormatter.parseToCents(_totalCtrl.text);
     if (manual != null && manual > 0) return manual;
-    if (_hasItems) return _itemsTotalCents;
+    if (_hasItems && !_summarizeOnly) return _itemsTotalCents;
     return null;
   }
 
@@ -147,6 +158,33 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     });
   }
 
+
+
+  /// Wechselt in den 'Nur Gesamtbetrag'-Modus und setzt die Kategorie
+  /// automatisch auf 'Sonstiges' (sofern vorhanden). Der User darf
+  /// danach trotzdem eine andere Kategorie waehlen.
+  void _setSummarizeOnly(bool value, List<Category> categories) {
+    setState(() {
+      _summarizeOnly = value;
+      if (value) {
+        // Sonstiges suchen, case-insensitive
+        Category? sonstiges;
+        for (final c in categories) {
+          if (c.name.toLowerCase() == 'sonstiges') {
+            sonstiges = c;
+            break;
+          }
+        }
+        if (sonstiges != null) {
+          _categoryId = sonstiges.id;
+        }
+        // Wenn 'Sonstiges' nicht existiert (geloescht/versteckt), bleibt
+        // die aktuelle Auswahl - der User kann selbst eine Kategorie
+        // setzen.
+      }
+    });
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_categoryId == null) {
@@ -175,28 +213,32 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           merchant: _merchantCtrl.text.trim(),
           occurredAt: _occurredAt,
           note: _noteCtrl.text.trim(),
-          items: _items
-              .map((i) => ExpenseItemDraft(
-                    name: i.nameCtrl.text.trim(),
-                    quantity: i.quantity,
-                    unitPriceCents: i.unitPriceCents ?? 0,
-                    totalCents: i.totalCents ?? 0,
-                  ))
-              .toList(growable: false),
+          items: _summarizeOnly
+              ? const <ExpenseItemDraft>[]
+              : _items
+                  .map((i) => ExpenseItemDraft(
+                        name: i.nameCtrl.text.trim(),
+                        quantity: i.quantity,
+                        unitPriceCents: i.unitPriceCents ?? 0,
+                        totalCents: i.totalCents ?? 0,
+                      ))
+                  .toList(growable: false),
         );
         await notifier.addExpense(draft);
       } else {
         // Update: wir bauen Items mit (alten oder neuen) IDs.
-        final items = _items
-            .map((i) => ExpenseItem(
-                  id: i.id ?? UniqueKey().toString(),
-                  expenseId: existing.id,
-                  name: i.nameCtrl.text.trim(),
-                  quantity: i.quantity,
-                  unitPriceCents: i.unitPriceCents ?? 0,
-                  totalCents: i.totalCents ?? 0,
-                ))
-            .toList(growable: false);
+        final items = _summarizeOnly
+            ? const <ExpenseItem>[]
+            : _items
+                .map((i) => ExpenseItem(
+                      id: i.id ?? UniqueKey().toString(),
+                      expenseId: existing.id,
+                      name: i.nameCtrl.text.trim(),
+                      quantity: i.quantity,
+                      unitPriceCents: i.unitPriceCents ?? 0,
+                      totalCents: i.totalCents ?? 0,
+                    ))
+                .toList(growable: false);
         final updated = existing.copyWith(
           categoryId: _categoryId,
           totalCents: total,
@@ -257,6 +299,39 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: <Widget>[
+                _SectionHeader(theme: theme, label: 'Modus'),
+                Center(
+                  child: SegmentedButton<bool>(
+                    segments: const <ButtonSegment<bool>>[
+                      ButtonSegment<bool>(
+                        value: false,
+                        label: Text('Mit Positionen'),
+                        icon: Icon(Icons.list_alt_rounded),
+                      ),
+                      ButtonSegment<bool>(
+                        value: true,
+                        label: Text('Nur Gesamtbetrag'),
+                        icon: Icon(Icons.functions_rounded),
+                      ),
+                    ],
+                    selected: <bool>{_summarizeOnly},
+                    onSelectionChanged: (Set<bool> s) =>
+                        _setSummarizeOnly(s.first, categories),
+                  ),
+                ),
+                if (_summarizeOnly)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Positionen werden nicht gespeichert. Default-'
+                      'Kategorie ist "Sonstiges" - du kannst auch eine '
+                      'andere waehlen.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
                 _SectionHeader(theme: theme, label: 'Allgemein'),
                 TextFormField(
                   controller: _merchantCtrl,
@@ -281,7 +356,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 const SizedBox(height: 16),
                 _SectionHeader(theme: theme, label: 'Betrag'),
                 // Live-Summe aus Positionen (nur wenn welche existieren)
-                if (_hasItems)
+                if (_hasItems && !_summarizeOnly)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -304,7 +379,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       ],
                     ),
                   ),
-                if (_hasItems) const SizedBox(height: 8),
+                if (_hasItems && !_summarizeOnly) const SizedBox(height: 8),
                 // Gesamtbetrag IMMER editierbar. Bei OCR-Vorbefuellung zeigt
                 // er den vom Bon erkannten Total; der Nutzer kann ihn ueber-
                 // schreiben oder auf 'leer' setzen, dann wird die Item-Summe
@@ -315,7 +390,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     decimal: true,
                   ),
                   decoration: InputDecoration(
-                    labelText: _hasItems
+                    labelText: (_hasItems && !_summarizeOnly)
                         ? 'Gesamtbetrag (ueberschreibt Positionen-Summe)'
                         : 'Gesamtbetrag',
                     suffixText: '€',
@@ -324,8 +399,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   onChanged: (_) => setState(() {}),
                   validator: (v) {
                     final manual = CurrencyFormatter.parseToCents(v ?? '');
-                    // Wenn Items da sind, akzeptieren wir leer (-> items sum)
-                    if (_hasItems && (v == null || v.trim().isEmpty)) {
+                    // Wenn Items da sind UND wir nicht im summarize-Modus sind,
+                    // akzeptieren wir leer (-> items sum).
+                    if (_hasItems && !_summarizeOnly &&
+                        (v == null || v.trim().isEmpty)) {
                       return null;
                     }
                     if (manual == null || manual <= 0) {
@@ -335,37 +412,39 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                _SectionHeader(
-                  theme: theme,
-                  label: 'Positionen (optional)',
-                  trailing: TextButton.icon(
-                    onPressed: _addItem,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Hinzufuegen'),
+                if (!_summarizeOnly) ...<Widget>[
+                  _SectionHeader(
+                    theme: theme,
+                    label: 'Positionen (optional)',
+                    trailing: TextButton.icon(
+                      onPressed: _addItem,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Hinzufuegen'),
+                    ),
                   ),
-                ),
-                if (_items.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Keine Positionen erfasst. Wenn du den Bon abfotografierst, '
-                      'fuellt der OCR-Parser das automatisch.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  for (int i = 0; i < _items.length; i++)
+                  if (_items.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _ItemRow(
-                        draft: _items[i],
-                        onChanged: () => setState(() {}),
-                        onRemove: () => _removeItem(i),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Keine Positionen erfasst. Wenn du den Bon abfotografierst, '
+                        'fuellt der OCR-Parser das automatisch.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                const SizedBox(height: 16),
+                    )
+                  else
+                    for (int i = 0; i < _items.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _ItemRow(
+                          draft: _items[i],
+                          onChanged: () => setState(() {}),
+                          onRemove: () => _removeItem(i),
+                        ),
+                      ),
+                  const SizedBox(height: 16),
+                ],
                 _SectionHeader(theme: theme, label: 'Notiz (optional)'),
                 TextFormField(
                   controller: _noteCtrl,
