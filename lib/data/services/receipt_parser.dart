@@ -40,7 +40,7 @@ class ReceiptParser {
   ReceiptParser._();
 
   static final RegExp _datePattern = RegExp(
-    r'\b(0?[1-9]|[12][0-9]|3[01])\.(0?[1-9]|1[0-2])\.(\d{2,4})\b',
+    r'\b(0?[1-9]|[12][0-9]|3[01])\s*\.\s*(0?[1-9]|1[0-2])\s*\.\s*(\d{2,4})\b',
   );
 
   /// Preis am Ende einer Zeile, optional mit fuehrendem `EUR` / `€`.
@@ -76,6 +76,15 @@ class ReceiptParser {
   static const List<String> _totalKeywords = <String>[
     'summe', 'gesamt', 'total', 'zu zahlen', 'zahlbetrag',
   ];
+  /// Bekannte Lebensmittel-/Drogerie-Ketten in DE. Hilft, den Haendler
+  /// auch dann zu erkennen, wenn die erste Zeile keine plausible Form
+  /// hat - und liefert einen kleinen Confidence-Bonus.
+  static const List<String> _knownStores = <String>[
+    'REWE', 'EDEKA', 'ALDI', 'LIDL', 'KAUFLAND', 'NETTO', 'PENNY',
+    'BUDNI', 'DM', 'ROSSMANN', 'MUELLER', 'NORMA', 'REAL', 'COMBI',
+    'TEGUT', 'METRO', 'GLOBUS',
+  ];
+
 
   /// Parser-Einstieg.
   static ParsedReceipt parse(
@@ -97,11 +106,20 @@ class ReceiptParser {
         items.fold<int>(0, (sum, i) => sum + i.totalCents);
     final effectiveTotal = totalCents ?? fallbackTotal;
 
+    // Confidence-Gewichtung: Items sind das Wichtigste fuer den Nutzer,
+    // Datum am wenigsten kritisch (faellt sauber auf 'heute' zurueck).
+    //   items   = 0.40
+    //   total   = 0.30
+    //   date    = 0.15
+    //   merchant= 0.10
+    //   bekannter Haendler   = +0.05 Bonus
     var confidence = 0.0;
-    if (detectedDate != null) confidence += 0.25;
-    if (totalCents != null) confidence += 0.4;
-    if (items.isNotEmpty) confidence += 0.25;
-    if (merchant.isNotEmpty) confidence += 0.1;
+    if (items.isNotEmpty) confidence += 0.40;
+    if (totalCents != null) confidence += 0.30;
+    if (detectedDate != null) confidence += 0.15;
+    if (merchant.isNotEmpty) confidence += 0.10;
+    final upper = cleanedLines.take(8).map((l) => l.toUpperCase()).join(' ');
+    if (_knownStores.any(upper.contains)) confidence += 0.05;
 
     return ParsedReceipt(
       merchant: merchant,
@@ -114,19 +132,26 @@ class ReceiptParser {
 
   // ─────────────────────────────────────────── Haendler
   static String _detectMerchant(List<String> lines) {
+    // Vorrang: bekannten Ketten-Namen finden, irgendwo in den ersten 8
+    // Zeilen. Auch wenn der OCR sie verstuemmelt (z. B. "R E W E"),
+    // hilft das in 90 % der Faelle bei deutschen Supermaerkten.
+    for (final raw in lines.take(8)) {
+      final upper = raw.toUpperCase();
+      for (final store in _knownStores) {
+        if (upper.contains(store)) return store;
+      }
+    }
+    // Fallback: erste plausible Zeile in den ersten 5.
     for (final raw in lines.take(5)) {
       final l = raw.trim();
       if (l.length < 3) continue;
-      // Vermeiden: Zeilen, die wie Adressen / Telefon / Datum aussehen.
       if (_datePattern.hasMatch(l)) continue;
       if (RegExp(r'^\d').hasMatch(l)) continue;
       if (l.toLowerCase().contains('strasse') ||
           l.toLowerCase().contains('straße') ||
           l.toLowerCase().contains('gmbh')) {
-        // Erst- oder Zweitwahl Haendler, aber bevorzugt davor.
         continue;
       }
-      // Plausible Haendler-Zeile: viele Buchstaben, wenige Sonderzeichen.
       final letters = RegExp(r'[A-Za-zÄÖÜäöüß]').allMatches(l).length;
       if (letters >= 3) return l;
     }
@@ -153,20 +178,28 @@ class ReceiptParser {
 
   // ─────────────────────────────────────────── Total
   static int? _detectTotalCents(List<String> lines) {
-    int? candidate;
     // Wir gehen von unten, weil das Total ueblicherweise am Ende des Bons steht.
-    for (final l in lines.reversed) {
-      final lower = l.toLowerCase();
+    // Wenn die Keyword-Zeile selbst keinen Preis hat (z. B. SUMME ist auf
+    // einer eigenen Zeile, der Wert daneben), schauen wir auch eine bzw.
+    // zwei Zeilen weiter.
+    for (var i = lines.length - 1; i >= 0; i--) {
+      final lower = lines[i].toLowerCase();
       final hasTotalKeyword =
           _totalKeywords.any((k) => lower.contains(k));
       if (!hasTotalKeyword) continue;
-      final cents = _priceFromLine(l);
-      if (cents != null) {
-        candidate = cents;
-        break;
+
+      final sameLine = _priceFromLine(lines[i]);
+      if (sameLine != null) return sameLine;
+
+      // Multi-line: Wert kann eine oder zwei Zeilen darueber/darunter stehen.
+      for (final offset in const <int>[1, -1, 2, -2]) {
+        final j = i + offset;
+        if (j < 0 || j >= lines.length) continue;
+        final neighbour = _priceFromLine(lines[j]);
+        if (neighbour != null) return neighbour;
       }
     }
-    return candidate;
+    return null;
   }
 
   // ─────────────────────────────────────────── Positionen

@@ -89,7 +89,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         categoryId: categoryId,
       );
 
-      if (parsed.confidence < 0.5 && mounted) {
+      if (parsed.confidence < 0.3 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

@@ -203,6 +203,56 @@ void main() {
       expect(r.totalCents, 199);
     });
 
+
+    test('Multi-Line: SUMME-Keyword auf eigener Zeile, Preis daneben', () {
+      // Wenn OCR den Whitespace-Block zwischen 'SUMME' und 'EUR 95,92'
+      // als Newline interpretiert, landen Keyword und Wert auf zwei Zeilen.
+      // Der Parser muss trotzdem das Total finden.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'Brot 1,99',
+        'SUMME',
+        'EUR 95,92',
+      ]);
+      expect(r.totalCents, 9592);
+    });
+
+    test('Datum mit Whitespaces um die Punkte', () {
+      // Manche OCR-Engines fuegen Spaces ein: '23. 01. 2026'
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'Datum: 23. 01. 2026',
+        'Brot 1,99',
+        'Summe 1,99',
+      ]);
+      expect(r.occurredAt.year, 2026);
+      expect(r.occurredAt.month, 1);
+      expect(r.occurredAt.day, 23);
+    });
+
+    test('Bekannter Haendler-Name irgendwo in den ersten Zeilen', () {
+      final r = ReceiptParser.parse(<String>[
+        'Filiale 1234',
+        'REWE',
+        'Westerstrasse 19',
+        '28199 Bremen',
+        'Brot 1,99',
+        'Summe 1,99',
+      ]);
+      expect(r.merchant, 'REWE');
+    });
+
+    test('Bekannter Haendler liefert Confidence-Bonus (>= 1.0 wenn voll)', () {
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        '03.05.2026',
+        'Brot 1,99',
+        'Summe 1,99',
+      ]);
+      // 0.40 + 0.30 + 0.15 + 0.10 + 0.05 (REWE-Bonus) = 1.00
+      expect(r.confidence, 1.0);
+    });
+
     test('Plausibilitaet: ignoriert Zeilen mit absurd hohen Preisen', () {
       final r = ReceiptParser.parse(<String>[
         'REWE',
