@@ -137,13 +137,15 @@ class ReceiptParser {
 
   // ─────────────────────────────────────────── Haendler
   static String _detectMerchant(List<String> lines) {
-    // Vorrang: bekannten Ketten-Namen finden, irgendwo in den ersten 8
-    // Zeilen. Auch wenn der OCR sie verstuemmelt (z. B. "R E W E"),
-    // hilft das in 90 % der Faelle bei deutschen Supermaerkten.
+    // Vorrang: Zeile mit bekanntem Ketten-Namen finden, irgendwo in den
+    // ersten 8 Zeilen. Wir geben die GANZE TRIMMED ZEILE zurueck (nicht
+    // nur den Ketten-Namen), damit Varianten wie 'ALDI SUED', 'REWE
+    // City' oder 'EDEKA neukauf' erhalten bleiben.
     for (final raw in lines.take(8)) {
-      final upper = raw.toUpperCase();
+      final trimmed = raw.trim();
+      final upper = trimmed.toUpperCase();
       for (final store in _knownStores) {
-        if (upper.contains(store)) return store;
+        if (upper.contains(store)) return trimmed;
       }
     }
     // Fallback: erste plausible Zeile in den ersten 5.
