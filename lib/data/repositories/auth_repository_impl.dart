@@ -1,5 +1,6 @@
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
+import '../../core/utils/password_validator.dart';
 import '../../domain/entities/user_auth.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/database/schema.dart';
@@ -40,11 +41,12 @@ class AuthRepositoryImpl implements AuthRepository {
     if (await hasAccount()) {
       throw StateError('Account existiert bereits.');
     }
-    if (password.length < 8) {
+    final validation = PasswordValidator.validate(password);
+    if (!validation.isValid) {
       throw ArgumentError.value(
         password.length,
-        'password.length',
-        'Passwort muss mindestens 8 Zeichen haben',
+        'password',
+        validation.errorMessage ?? 'Passwort erfuellt nicht die Anforderungen',
       );
     }
 
@@ -125,11 +127,12 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!ok) {
       throw StateError('Altes Passwort ist falsch.');
     }
-    if (newPassword.length < 8) {
+    final validation = PasswordValidator.validate(newPassword);
+    if (!validation.isValid) {
       throw ArgumentError.value(
         newPassword.length,
-        'newPassword.length',
-        'Passwort muss mindestens 8 Zeichen haben',
+        'newPassword',
+        validation.errorMessage ?? 'Passwort erfuellt nicht die Anforderungen',
       );
     }
     final hashed = await _hasher.hashNew(newPassword);
