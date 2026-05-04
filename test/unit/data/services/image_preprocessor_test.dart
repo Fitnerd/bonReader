@@ -25,7 +25,7 @@ void main() {
       } catch (_) {}
     });
 
-    Future<File> _writeJpg(img.Image image, String name) async {
+    Future<File> writeJpg(img.Image image, String name) async {
       final f = File(p.join(tempDir.path, name));
       await f.writeAsBytes(img.encodeJpg(image, quality: 90));
       return f;
@@ -35,10 +35,10 @@ void main() {
       // Buntes 50x50 Bild
       final src = img.Image(width: 50, height: 50);
       img.fill(src, color: img.ColorRgb8(255, 100, 50));
-      final file = await _writeJpg(src, 'in.jpg');
+      final file = await writeJpg(src, 'in.jpg');
       final origLen = await file.length();
 
-      final processor = const DefaultImagePreprocessor();
+      const processor = DefaultImagePreprocessor();
       final out = await processor.processInPlace(file);
 
       expect(out.path, file.path, reason: 'gleiches File-Objekt zurueck');
@@ -64,9 +64,9 @@ void main() {
           src.setPixelRgb(x, y, v, v, v);
         }
       }
-      final file = await _writeJpg(src, 'lowcontrast.jpg');
+      final file = await writeJpg(src, 'lowcontrast.jpg');
 
-      final processor = const DefaultImagePreprocessor();
+      const processor = DefaultImagePreprocessor();
       await processor.processInPlace(file);
 
       final processed = img.decodeImage(await file.readAsBytes())!;
@@ -89,7 +89,7 @@ void main() {
     test('kaputte Datei -> unveraendert zurueck (kein Crash)', () async {
       final f = File(p.join(tempDir.path, 'broken.jpg'));
       await f.writeAsBytes(Uint8List.fromList(<int>[1, 2, 3, 4, 5]));
-      final processor = const DefaultImagePreprocessor();
+      const processor = DefaultImagePreprocessor();
       final out = await processor.processInPlace(f);
       expect(out.path, f.path);
       // Der Inhalt bleibt unveraendert (decodeImage gab null zurueck).

@@ -18,6 +18,7 @@ class Migrations {
       Future<void> Function(DatabaseExecutor)>[
     _v1,
     _v2,
+    _v3,
   ];
 
   static int get latestVersion => _all.length;
@@ -40,14 +41,23 @@ class Migrations {
 
   // ----------------------------------------------------------------
   // Version 1: initiales Schema
+  //
+  // Hinweis: V1 wird nur bei einer wirklich neuen DB ausgefuehrt
+  // (onCreate startet bei i=0). Bestehende V1-Installationen werden
+  // ueber V3 auf das passwortlose Auth-Schema migriert.
   // ----------------------------------------------------------------
   static Future<void> _v1(DatabaseExecutor db) async {
+    // Wir legen die Auth-Tabelle hier in der V1-kompatiblen Form an
+    // (mit Hash-Spalten), damit Bestandsinstallationen, die V1 schon
+    // ausgefuehrt haben, beim Re-Run nicht in Konflikt geraten. Eine
+    // frische Installation ueberspringt V1 nicht und durchlaeuft am
+    // Ende V3, das die Tabelle auf das passwortlose Schema umbaut.
     await db.execute('''
       CREATE TABLE IF NOT EXISTS ${DbTables.auth} (
         ${AuthCols.id} INTEGER PRIMARY KEY AUTOINCREMENT,
-        ${AuthCols.passwordHash} TEXT NOT NULL,
-        ${AuthCols.passwordSalt} TEXT NOT NULL,
-        ${AuthCols.biometricEnabled} INTEGER NOT NULL DEFAULT 0,
+        password_hash TEXT NOT NULL DEFAULT '',
+        password_salt TEXT NOT NULL DEFAULT '',
+        biometric_enabled INTEGER NOT NULL DEFAULT 0,
         ${AuthCols.createdAt} INTEGER NOT NULL,
         ${AuthCols.updatedAt} INTEGER NOT NULL
       );
@@ -150,7 +160,7 @@ class Migrations {
     await db.execute('DROP INDEX IF EXISTS idx_expense_items_expense;');
 
     // 4. Alte Tabelle wegwerfen.
-    await db.execute('DROP TABLE ${DbTables.expenseItems};');
+    await db.execute('DROP TABLE IF EXISTS ${DbTables.expenseItems};');
 
     // 5. Neue Tabelle umbenennen.
     await db.execute('''
@@ -162,6 +172,56 @@ class Migrations {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_expense_items_expense
       ON ${DbTables.expenseItems}(${ExpenseItemCols.expenseId});
+    ''');
+  }
+
+  // ----------------------------------------------------------------
+  // Version 3: Auth-Tabelle ohne Passwort-Hash (Biometrie-Only).
+  //
+  // Wir entfernen `password_hash`, `password_salt` und
+  // `biometric_enabled`. Der eigentliche Daten-Inhalt der Tabelle
+  // (createdAt, updatedAt, ggf. die ID) bleibt erhalten, damit der
+  // bestehende Setup-Marker nicht verloren geht.
+  //
+  // SQLite kennt kein DROP COLUMN vor 3.35 / Android-API-Niveau, also
+  // fahren wir das Standard-Recreate-Pattern.
+  //
+  // ACHTUNG: Diese Migration darf NICHT laufen, solange im Secure
+  // Storage noch ein altes Argon2-Hash liegt - dann muesste der Nutzer
+  // erst den Migrations-Flow im Setup-Screen durchlaufen (Passwort
+  // einmal eingeben). Die Migration im DB-Schema selbst ist davon
+  // unabhaengig: das Schema wird umgestellt, der Legacy-Hash im Secure
+  // Storage bleibt und triggert dann den UI-Migrations-Flow.
+  // ----------------------------------------------------------------
+  static Future<void> _v3(DatabaseExecutor db) async {
+    // 1. Neue, schlanke Auth-Tabelle anlegen.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbTables.auth}_new (
+        ${AuthCols.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${AuthCols.createdAt} INTEGER NOT NULL,
+        ${AuthCols.updatedAt} INTEGER NOT NULL
+      );
+    ''');
+
+    // 2. Daten ruebertragen, falls vorhandene Auth-Zeile existiert.
+    //    Nur die Spalten, die bestehen bleiben sollen.
+    await db.execute('''
+      INSERT INTO ${DbTables.auth}_new (
+        ${AuthCols.id},
+        ${AuthCols.createdAt},
+        ${AuthCols.updatedAt}
+      )
+      SELECT ${AuthCols.id}, ${AuthCols.createdAt}, ${AuthCols.updatedAt}
+      FROM ${DbTables.auth};
+    ''');
+
+    // 3. Alte Tabelle wegwerfen.
+    await db.execute('DROP TABLE IF EXISTS ${DbTables.auth};');
+
+    // 4. Neue Tabelle umbenennen.
+    await db.execute('''
+      ALTER TABLE ${DbTables.auth}_new
+      RENAME TO ${DbTables.auth};
     ''');
   }
 }

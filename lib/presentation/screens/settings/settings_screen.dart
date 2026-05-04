@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/auth_providers.dart';
-import '../../../domain/entities/user_auth.dart';
 import '../../providers/auth_state.dart';
 import '../../providers/settings_state.dart';
 
-/// Einstellungen: Biometrie, Auto-Logout, Passwort aendern,
-/// Account zuruecksetzen, Lizenzen.
+/// Einstellungen: Biometrie-Status, Auto-Logout, Account zuruecksetzen,
+/// Lizenzen.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -23,7 +22,7 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           _SectionTitle(label: 'Sicherheit', theme: theme),
-          const _BiometricTile(),
+          const _BiometricStatusTile(),
           const Divider(height: 1),
           asyncTimeout.when(
             loading: () => const ListTile(
@@ -31,20 +30,13 @@ class SettingsScreen extends ConsumerWidget {
               title: Text('Auto-Logout'),
               subtitle: Text('Lade…'),
             ),
-            error: (e, _) => ListTile(
-              leading: const Icon(Icons.timer_outlined),
-              title: const Text('Auto-Logout'),
-              subtitle: Text('Fehler: $e'),
+            error: (e, _) => const ListTile(
+              leading: Icon(Icons.timer_outlined),
+              title: Text('Auto-Logout'),
+              subtitle:
+                  Text('Einstellung konnte nicht geladen werden.'),
             ),
             data: (minutes) => _AutoLogoutTile(minutes: minutes),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.password_rounded),
-            title: const Text('Passwort aendern'),
-            subtitle: const Text('Altes Passwort wird zur Bestaetigung benoetigt'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showChangePasswordSheet(context, ref),
           ),
           const SizedBox(height: 24),
           _SectionTitle(label: 'Daten', theme: theme),
@@ -59,7 +51,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             subtitle: const Text(
                 'Unwiderruflich. Setzt die App auf Werkseinstellungen zurueck.'),
-            onTap: () => _showResetSheet(context, ref),
+            onTap: () => _showResetSheet(context),
           ),
           const SizedBox(height: 24),
           _SectionTitle(label: 'Ueber', theme: theme),
@@ -72,7 +64,8 @@ class SettingsScreen extends ConsumerWidget {
               applicationName: AppConstants.appName,
               applicationLegalese:
                   'Alle Daten bleiben lokal auf diesem Geraet. '
-                  'AES-256 verschluesselte Datenbank, Argon2id-Passwort.',
+                  'AES-256 verschluesselte Datenbank. Zugriff per '
+                  'Biometrie / Geraete-PIN.',
             ),
           ),
           ListTile(
@@ -88,16 +81,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showChangePasswordSheet(
-      BuildContext context, WidgetRef ref) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const _ChangePasswordSheet(),
-    );
-  }
-
-  Future<void> _showResetSheet(BuildContext context, WidgetRef ref) async {
+  Future<void> _showResetSheet(BuildContext context) async {
     await showDialog<void>(
       context: context,
       builder: (_) => const _ResetAccountDialog(),
@@ -122,73 +106,47 @@ class _SectionTitle extends StatelessWidget {
       );
 }
 
-class _BiometricTile extends ConsumerStatefulWidget {
-  const _BiometricTile();
+/// Reine Statusanzeige - Biometrie ist im Biometrie-Only-Modell immer
+/// aktiv. Falls auf dem Geraet nichts eingerichtet ist, leitet der
+/// Hinweis zur System-Einstellung.
+class _BiometricStatusTile extends ConsumerStatefulWidget {
+  const _BiometricStatusTile();
 
   @override
-  ConsumerState<_BiometricTile> createState() => _BiometricTileState();
+  ConsumerState<_BiometricStatusTile> createState() =>
+      _BiometricStatusTileState();
 }
 
-class _BiometricTileState extends ConsumerState<_BiometricTile> {
-  bool _busy = false;
+class _BiometricStatusTileState
+    extends ConsumerState<_BiometricStatusTile> {
+  bool? _available;
 
-  Future<void> _toggle(bool enabled) async {
-    setState(() => _busy = true);
-    try {
-      if (enabled) {
-        // Vor dem Aktivieren einmal authentifizieren, sonst koennte
-        // jemand bei offener Sitzung Biometrie aktivieren und sich so
-        // dauerhaft Zugang sichern.
-        final biom = ref.read(biometricServiceProvider);
-        final ok = await biom.authenticate(
-          localizedReason: 'Biometrie aktivieren',
-        );
-        if (!ok) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Biometrie nicht bestaetigt.')),
-            );
-          }
-          return;
-        }
-      }
-      await ref
-          .read(authStateProvider.notifier)
-          .setBiometricEnabled(enabled: enabled);
-      // AuthState neu laden waere idiomatischer; pragmatisch genuegt
-      // dieser Toggle, da das Flag direkt aus DB/Storage gelesen wird.
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    final ok = await ref.read(biometricServiceProvider).isAvailable();
+    if (!mounted) return;
+    setState(() => _available = ok);
   }
 
   @override
   Widget build(BuildContext context) {
-    final asyncRepo = ref.watch(authRepositoryProvider);
-    return asyncRepo.when(
-      loading: () => const ListTile(
-        leading: Icon(Icons.fingerprint_rounded),
-        title: Text('Biometrie'),
-        subtitle: Text('Lade…'),
-      ),
-      error: (e, _) => ListTile(
-        leading: const Icon(Icons.fingerprint_rounded),
-        title: const Text('Biometrie'),
-        subtitle: Text('Fehler: $e'),
-      ),
-      data: (repo) => FutureBuilder<UserAuth?>(
-        future: repo.getAuth(),
-        builder: (BuildContext ctx, AsyncSnapshot<UserAuth?> snap) {
-          final enabled = snap.data?.biometricEnabled ?? false;
-          return SwitchListTile(
-            secondary: const Icon(Icons.fingerprint_rounded),
-            title: const Text('Biometrie'),
-            subtitle: Text(enabled
-                ? 'Aktiv – Anmeldung mit Fingerabdruck/Face ID moeglich.'
-                : 'Aus – Anmeldung nur per Passwort.'),
-            value: enabled,
-            onChanged: _busy ? null : _toggle,
-          );
+    final available = _available;
+    return ListTile(
+      leading: const Icon(Icons.fingerprint_rounded),
+      title: const Text('Biometrie / Geraete-PIN'),
+      subtitle: Text(
+        switch (available) {
+          null => 'Pruefe…',
+          true =>
+            'Aktiv. Nur Biometrie oder Geraete-PIN gibt Zugriff frei.',
+          false =>
+            'Auf dem Geraet ist keine Biometrie eingerichtet. '
+                'Bitte System-Einstellungen pruefen.',
         },
       ),
     );
@@ -241,140 +199,13 @@ class _AutoLogoutTile extends ConsumerWidget {
           ),
           Text(
             'Nach so vielen Minuten ohne Bedienung wirst du abgemeldet. '
-            'Beim Wechsel in den Hintergrund passiert das sofort, unabhaengig vom Wert.',
+            'Beim Wechsel in den Hintergrund passiert das sofort, '
+            'unabhaengig vom Wert.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ChangePasswordSheet extends ConsumerStatefulWidget {
-  const _ChangePasswordSheet();
-
-  @override
-  ConsumerState<_ChangePasswordSheet> createState() =>
-      _ChangePasswordSheetState();
-}
-
-class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
-  final _formKey = GlobalKey<FormState>();
-  final _oldCtrl = TextEditingController();
-  final _newCtrl = TextEditingController();
-  final _confirmCtrl = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _oldCtrl.clear();
-    _newCtrl.clear();
-    _confirmCtrl.clear();
-    _oldCtrl.dispose();
-    _newCtrl.dispose();
-    _confirmCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final repo = await ref.read(authRepositoryProvider.future);
-      await repo.changePassword(
-        oldPassword: _oldCtrl.text,
-        newPassword: _newCtrl.text,
-      );
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Passwort geaendert.')),
-        );
-      }
-    } catch (e) {
-      setState(() => _error = _humanize(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  String _humanize(Object e) {
-    if (e is StateError) return e.message;
-    if (e is ArgumentError) return e.message?.toString() ?? 'Ungueltige Eingabe';
-    return 'Fehler beim Aendern des Passworts.';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final viewInsets = MediaQuery.of(context).viewInsets;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + viewInsets.bottom),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              'Passwort aendern',
-              style: theme.textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _oldCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Aktuelles Passwort'),
-              validator: (v) =>
-                  (v == null || v.isEmpty) ? 'Bitte eingeben' : null,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _newCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Neues Passwort'),
-              validator: (v) {
-                if (v == null || v.length < 8) return 'Mindestens 8 Zeichen';
-                return null;
-              },
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _confirmCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Neues Passwort wiederholen'),
-              validator: (v) {
-                if (v != _newCtrl.text) return 'Passwoerter stimmen nicht ueberein';
-                return null;
-              },
-            ),
-            if (_error != null) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-            ],
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _busy ? null : _submit,
-              child: _busy
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Speichern'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -389,17 +220,9 @@ class _ResetAccountDialog extends ConsumerStatefulWidget {
 }
 
 class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
-  final _passwordCtrl = TextEditingController();
   bool _confirmed = false;
   bool _busy = false;
   String? _error;
-
-  @override
-  void dispose() {
-    _passwordCtrl.clear();
-    _passwordCtrl.dispose();
-    super.dispose();
-  }
 
   Future<void> _submit() async {
     if (!_confirmed) return;
@@ -408,19 +231,20 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
       _error = null;
     });
     try {
-      final repo = await ref.read(authRepositoryProvider.future);
-      await repo.resetAccount(_passwordCtrl.text);
-      // Auth-State neu auswerten – nach resetAccount ist hasAccount() false.
-      ref.invalidate(authStateProvider);
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Account und alle Daten geloescht.')),
-        );
-      }
+      // Reset triggert Biometrie-Prompt nicht direkt – der User hat sich
+      // ja gerade authentifiziert, um in die Settings zu kommen. Wir
+      // verlassen uns auf die Auto-Logout-Suppression beim
+      // Bestaetigungs-Klick.
+      await ref.read(authStateProvider.notifier).resetAccount();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Account und alle Daten geloescht.')),
+      );
     } catch (e) {
-      setState(() => _error = e is StateError ? e.message : 'Fehler.');
+      if (!mounted) return;
+      setState(() => _error = 'Fehler beim Zuruecksetzen.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -439,8 +263,8 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const Text(
-            'Account, Passwort, alle Kategorien, Budgets und Ausgaben '
-            'werden unwiderruflich entfernt. Es gibt keinen Backup.',
+            'Account, alle Kategorien, Budgets und Ausgaben werden '
+            'unwiderruflich entfernt. Es gibt keinen Backup.',
           ),
           const SizedBox(height: 12),
           CheckboxListTile(
@@ -449,15 +273,8 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
             dense: true,
-            title: const Text('Mir ist klar, dass das nicht rueckgaengig zu machen ist.'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _passwordCtrl,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Aktuelles Passwort',
-            ),
+            title: const Text(
+                'Mir ist klar, dass das nicht rueckgaengig zu machen ist.'),
           ),
           if (_error != null) ...<Widget>[
             const SizedBox(height: 8),

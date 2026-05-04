@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../presentation/providers/auth_state.dart';
-import '../../presentation/screens/auth/login_screen.dart';
-import '../../presentation/screens/auth/register_screen.dart';
+import '../../presentation/screens/auth/legacy_migration_screen.dart';
+import '../../presentation/screens/auth/setup_screen.dart';
+import '../../presentation/screens/auth/unlock_screen.dart';
 import '../../presentation/screens/home/dashboard_screen.dart';
 import '../../presentation/screens/splash/splash_screen.dart';
 import '../../presentation/widgets/auto_logout_listener.dart';
@@ -13,14 +14,15 @@ import '../../presentation/widgets/auto_logout_listener.dart';
 class AppRoutes {
   AppRoutes._();
   static const String splash = '/';
-  static const String register = '/register';
-  static const String login = '/login';
+  static const String setup = '/setup';
+  static const String unlock = '/unlock';
+  static const String legacyMigration = '/legacy-migration';
   static const String home = '/home';
 }
 
 /// Baut den Router. Ein `redirect` reagiert auf Auth-Aenderungen,
 /// damit Nutzer nicht ohne Anmeldung zur Home-Seite kommen und
-/// nach Login automatisch dorthin weitergeleitet werden.
+/// nach Unlock automatisch dorthin weitergeleitet werden.
 GoRouter buildAppRouter(WidgetRef ref) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
@@ -40,17 +42,23 @@ GoRouter buildAppRouter(WidgetRef ref) {
       switch (auth.status) {
         case AuthStatus.unknown:
           return AppRoutes.splash;
-        case AuthStatus.noAccount:
-          return loc == AppRoutes.register ? null : AppRoutes.register;
-        case AuthStatus.loggedOut:
-        case AuthStatus.authenticating:
-          return loc == AppRoutes.login ? null : AppRoutes.login;
-        case AuthStatus.authenticated:
-          return (loc == AppRoutes.login ||
-                  loc == AppRoutes.register ||
-                  loc == AppRoutes.splash)
-              ? AppRoutes.home
-              : null;
+        case AuthStatus.needsSetup:
+          return loc == AppRoutes.setup ? null : AppRoutes.setup;
+        case AuthStatus.needsLegacyMigration:
+          return loc == AppRoutes.legacyMigration
+              ? null
+              : AppRoutes.legacyMigration;
+        case AuthStatus.locked:
+        case AuthStatus.unlocking:
+          return loc == AppRoutes.unlock ? null : AppRoutes.unlock;
+        case AuthStatus.unlocked:
+          if (loc == AppRoutes.setup ||
+              loc == AppRoutes.unlock ||
+              loc == AppRoutes.legacyMigration ||
+              loc == AppRoutes.splash) {
+            return AppRoutes.home;
+          }
+          return null;
       }
     },
     routes: <RouteBase>[
@@ -61,16 +69,22 @@ GoRouter buildAppRouter(WidgetRef ref) {
             const SplashScreen(),
       ),
       GoRoute(
-        path: AppRoutes.register,
-        name: 'register',
+        path: AppRoutes.setup,
+        name: 'setup',
         builder: (BuildContext context, GoRouterState state) =>
-            const RegisterScreen(),
+            const SetupScreen(),
       ),
       GoRoute(
-        path: AppRoutes.login,
-        name: 'login',
+        path: AppRoutes.unlock,
+        name: 'unlock',
         builder: (BuildContext context, GoRouterState state) =>
-            const LoginScreen(),
+            const UnlockScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.legacyMigration,
+        name: 'legacy-migration',
+        builder: (BuildContext context, GoRouterState state) =>
+            const LegacyMigrationScreen(),
       ),
       GoRoute(
         path: AppRoutes.home,
@@ -87,8 +101,6 @@ GoRouter buildAppRouter(WidgetRef ref) {
 /// Aenderung am AuthState ein Re-Evaluieren der Redirects ausloest.
 class _AuthRouterListenable extends ChangeNotifier {
   _AuthRouterListenable(WidgetRef ref) {
-    // listenManual ist erlaubt ausserhalb von build(); der zurueckgegebene
-    // ProviderSubscription wird in dispose() geschlossen.
     _sub = ref.listenManual<AsyncValue<AuthState>>(
       authStateProvider,
       (_, __) => notifyListeners(),

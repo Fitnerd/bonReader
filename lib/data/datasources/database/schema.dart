@@ -12,9 +12,6 @@ class DbTables {
 class AuthCols {
   AuthCols._();
   static const String id = 'id';
-  static const String passwordHash = 'password_hash';
-  static const String passwordSalt = 'password_salt';
-  static const String biometricEnabled = 'biometric_enabled';
   static const String createdAt = 'created_at';
   static const String updatedAt = 'updated_at';
 }

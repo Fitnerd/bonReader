@@ -87,10 +87,18 @@ class CategoryRepositoryImpl implements CategoryRepository {
     required int colorValue,
     required int iconCodePoint,
   }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'darf nicht leer sein');
+    }
+    if (trimmed.length > 40) {
+      throw ArgumentError.value(
+          name, 'name', 'darf maximal 40 Zeichen haben');
+    }
     final now = DateTime.now();
     final category = Category(
       id: _uuid.v4(),
-      name: name.trim(),
+      name: trimmed,
       colorValue: colorValue,
       iconCodePoint: iconCodePoint,
       isDefault: false,

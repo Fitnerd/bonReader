@@ -102,7 +102,15 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     });
 
     final created = await getById(expenseId);
-    return created!;
+    if (created == null) {
+      // Sollte nie passieren - die Transaktion oben hat gerade
+      // committed. Wenn doch, ist die DB korrupt - lieber explizit
+      // failen als mit `!` einen NPE-aehnlichen Crash zu kaschieren.
+      throw StateError(
+        'create: Ausgabe $expenseId nach Insert nicht auffindbar.',
+      );
+    }
+    return created;
   }
 
   @override
@@ -138,7 +146,12 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       }
     });
     final updated = await getById(expense.id);
-    return updated!;
+    if (updated == null) {
+      throw StateError(
+        'update: Ausgabe ${expense.id} nach Update nicht auffindbar.',
+      );
+    }
+    return updated;
   }
 
   @override

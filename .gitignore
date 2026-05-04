@@ -14,11 +14,8 @@
 *.freezed.dart
 *.mocks.dart
 
-# Symbolication related
+# Symbolication / Obfuscation related
 app.*.symbols
-app.*.map.json
-
-# Obfuscation related
 app.*.map.json
 
 # Android Studio / IntelliJ

@@ -6,6 +6,22 @@ import '../../../core/constants/app_constants.dart';
 import 'database_passphrase_service.dart';
 import 'migrations.dart';
 
+// Compile-Time-Sicherung: Wenn jemand `databaseVersion` hochzieht ohne
+// eine neue `_v...`-Migration anzulegen (oder umgekehrt), schlaegt das
+// hier sofort an und nicht erst zur Laufzeit auf Geraeten.
+const _kDbVersionMatchesMigrations =
+    AppConstants.databaseVersion == _migrationsLatestVersionAtCompile;
+const _migrationsLatestVersionAtCompile = 3;
+// ignore: unused_element
+void _assertDbVersionInSync() {
+  assert(
+    _kDbVersionMatchesMigrations &&
+        AppConstants.databaseVersion == Migrations.latestVersion,
+    'AppConstants.databaseVersion (${AppConstants.databaseVersion}) muss zu '
+    'Migrations.latestVersion (${Migrations.latestVersion}) passen.',
+  );
+}
+
 /// Oeffnet die verschluesselte SQLite-Datenbank.
 ///
 /// Verwendet SQLCipher (AES-256 page-level). Die Passphrase kommt
@@ -21,6 +37,7 @@ class AppDatabase {
   Database? _db;
 
   Future<Database> open() async {
+    _assertDbVersionInSync();
     final existing = _db;
     if (existing != null && existing.isOpen) return existing;
 

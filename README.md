@@ -7,7 +7,7 @@ Alle Daten bleiben **lokal und verschluesselt** auf deinem Geraet.
 
 - [x] Schritt 1: Projekt-Setup & Architektur
 - [x] Schritt 2: Datenmodell & verschluesselte DB
-- [x] Schritt 3: Auth-System (Argon2 + Secure Storage + Biometrie)
+- [x] Schritt 3: Auth-System (Biometrie / Geraete-PIN + Secure Storage)
 - [x] Schritt 4: Kategorien-Verwaltung & Budgets
 - [x] Schritt 5: Manuelle Ausgabe-Erfassung
 - [x] Schritt 6: Bon-Foto + OCR + Positions-Erkennung
@@ -17,8 +17,9 @@ Alle Daten bleiben **lokal und verschluesselt** auf deinem Geraet.
 
 ## Features
 
-- **Lokal & verschluesselt**: SQLCipher (AES-256) + Argon2id-Passwort.
-  Keine Cloud, keine Telemetrie.
+- **Lokal & verschluesselt**: SQLCipher (AES-256). Zugriff per Biometrie
+  oder Geraete-PIN ueber den hardware-gestuetzten Secure Storage.
+  Kein App-Passwort. Keine Cloud, keine Telemetrie.
 - **Bon scannen**: On-device OCR (Google ML Kit). Foto wird unmittelbar
   nach Auswertung geloescht.
 - **Heuristischer Bon-Parser**: Erkennt Haendler, Datum, Total und einzelne
@@ -27,7 +28,8 @@ Alle Daten bleiben **lokal und verschluesselt** auf deinem Geraet.
 - **Budgets pro Kategorie**: Gesamtbudget = Summe der Kategorie-Budgets.
 - **Dashboard**: Restbudget-Ring, Auslastung pro Kategorie, letzte Ausgaben.
 - **Statistik**: 12-Monats-Trend, Top-Kategorien-Donut, Monatsvergleich.
-- **Biometrie**: Fingerprint / Face ID als zusaetzliche Anmeldung.
+- **Biometrie-Only**: Fingerprint / Face ID oder Geraete-PIN als alleinige
+  Anmeldung. **Kein Recovery** - bei Geraeteverlust sind die Daten weg.
 - **Auto-Logout**: konfigurierbar (1-30 Min) und sofort beim Backgrounding.
 - **Account-Reset**: Komplett-Wipe direkt in der App.
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -16,18 +17,37 @@ import '../secure_storage_service.dart';
 /// Zugriff auf die DB-Datei kommt aus dem Secure Storage selbst,
 /// der vom Betriebssystem hardwaregestuetzt verschluesselt ist.
 ///
-/// TODO(security): Key-Rotation implementieren. Langfristig sollte die
-/// DB-Passphrase bei Passwortwechsel rotiert werden koennen.
-/// SQLCipher unterstuetzt `PRAGMA rekey` – die alte Passphrase oeffnet
-/// die DB, dann wird mit `rekey` auf die neue umgestellt. Aktuell ist
-/// das kein direktes Risiko, da die Passphrase im Secure Storage liegt.
+/// **Nebenlaeufigkeit:** [getOrCreate] ist mit einem internen Mutex
+/// serialisiert. Ohne den koennten zwei parallele Aufrufer beim
+/// allerersten Start jeweils eine eigene Passphrase erzeugen, was zu
+/// einer nicht mehr lesbaren DB fuehrt. Im Normalbetrieb ist nur ein
+/// Aufruf gleichzeitig zu erwarten, der Mutex ist Defence-in-Depth.
 class DatabasePassphraseService {
   DatabasePassphraseService(this._storage);
 
   final SecureStorageService _storage;
 
+  /// Laufender Aufruf von [getOrCreate], falls einer aktiv ist.
+  /// Wird benutzt, um parallele Aufrufer auf das gleiche Future
+  /// warten zu lassen statt jeweils eigenen Storage-Zugriff zu starten.
+  Future<String>? _inFlight;
+
   /// Lese die Passphrase oder erzeuge sie beim ersten Start.
-  Future<String> getOrCreate() async {
+  ///
+  /// Garantiert, dass auch bei parallelen Aufrufen nur eine Passphrase
+  /// generiert und persistiert wird.
+  Future<String> getOrCreate() {
+    final existing = _inFlight;
+    if (existing != null) return existing;
+    final future = _readOrCreate();
+    _inFlight = future;
+    // Egal ob Erfolg oder Fehler: Slot wieder freigeben, damit ein
+    // spaeterer Aufruf einen frischen Versuch macht.
+    future.whenComplete(() => _inFlight = null);
+    return future;
+  }
+
+  Future<String> _readOrCreate() async {
     final existing = await _storage.readDbPassphrase();
     if (existing != null && existing.isNotEmpty) return existing;
 

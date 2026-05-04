@@ -29,7 +29,7 @@ class CategoryClassifier {
       <String, List<String>>{
     'lebensmittel': <String>[
       // Brot/Backwaren
-      'BROT', 'BROETCHEN', 'BROETCHEN', 'TOAST', 'KNAECKE', 'BAGUETTE',
+      'BROT', 'BROETCHEN', 'TOAST', 'KNAECKE', 'BAGUETTE',
       'CROISSANT', 'BREZEL', 'KUCHEN', 'TORTE', 'KEKS',
       // Milchprodukte
       'MILCH', 'BUTTER', 'JOGHURT', 'KAESE', 'GOUDA', 'QUARK',

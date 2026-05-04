@@ -49,8 +49,7 @@ final expensesProvider =
 /// Halbgeschlossenes Intervall `[from, toExclusive)`. Fuer Kalender-
 /// Filter eindeutig (kein Off-by-one am Tagesende).
 class DateRange {
-  const DateRange({required this.from, required this.toExclusive})
-      : assert(from != toExclusive || from == toExclusive);
+  const DateRange({required this.from, required this.toExclusive});
 
   /// Kompletter Kalendermonat (1. 0:00 bis 1. des Folgemonats 0:00).
   factory DateRange.calendarMonth(DateTime any) => DateRange(
@@ -132,21 +131,21 @@ final selectedDateRangeLabelProvider = Provider<String>((ref) {
     'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
   ];
   if (r.isCalendarMonth) {
-    return '\${months[r.from.month - 1]} \${r.from.year}';
+    return '${months[r.from.month - 1]} ${r.from.year}';
   }
   String d2(int n) => n.toString().padLeft(2, '0');
   if (r.isSingleDay) {
-    return '\${d2(r.from.day)}.\${d2(r.from.month)}.\${r.from.year}';
+    return '${d2(r.from.day)}.${d2(r.from.month)}.${r.from.year}';
   }
   // Letzter inklusiver Tag = toExclusive - 1 day
   final lastInclusive = r.toExclusive.subtract(const Duration(days: 1));
   // Wenn gleiches Jahr → Jahr nur einmal, sonst zweimal
   if (r.from.year == lastInclusive.year) {
-    return '\${d2(r.from.day)}.\${d2(r.from.month)}.–'
-        '\${d2(lastInclusive.day)}.\${d2(lastInclusive.month)}.\${lastInclusive.year}';
+    return '${d2(r.from.day)}.${d2(r.from.month)}.–'
+        '${d2(lastInclusive.day)}.${d2(lastInclusive.month)}.${lastInclusive.year}';
   }
-  return '\${d2(r.from.day)}.\${d2(r.from.month)}.\${r.from.year}–'
-      '\${d2(lastInclusive.day)}.\${d2(lastInclusive.month)}.\${lastInclusive.year}';
+  return '${d2(r.from.day)}.${d2(r.from.month)}.${r.from.year}–'
+      '${d2(lastInclusive.day)}.${d2(lastInclusive.month)}.${lastInclusive.year}';
 });
 
 // ─────────────────────────────────────────────────────────────────────

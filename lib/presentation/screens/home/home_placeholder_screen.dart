@@ -21,7 +21,7 @@ class HomePlaceholderScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final totalBudget = ref.watch(totalBudgetCentsProvider);
-    final spent = ref.watch(totalSpentInSelectedMonthProvider);
+    final spent = ref.watch(totalSpentInSelectedRangeProvider);
     final remaining = totalBudget - spent;
 
     return Scaffold(

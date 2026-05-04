@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 /// Bereitet ein Bon-Foto fuer die OCR vor.
@@ -43,7 +44,13 @@ class DefaultImagePreprocessor implements ImagePreprocessor {
     img.Image? image;
     try {
       image = img.decodeImage(bytes);
-    } catch (_) {
+    } catch (e, st) {
+      // Fehler nicht verschlucken, aber kein User-Stop - ML Kit soll
+      // gleich selber probieren.
+      if (kDebugMode) {
+        debugPrint('ImagePreprocessor.decode failed: $e');
+        debugPrintStack(stackTrace: st, label: 'ImagePreprocessor');
+      }
       image = null;
     }
     if (image == null) {

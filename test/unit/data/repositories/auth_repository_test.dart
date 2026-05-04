@@ -1,16 +1,18 @@
+import 'package:bonbudget/data/datasources/database/schema.dart';
 import 'package:bonbudget/data/repositories/auth_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../helpers/fake_password_hasher.dart';
 import '../../../helpers/fake_secure_storage.dart';
 import '../../../helpers/in_memory_database.dart';
 
-/// Tests fuer das Zusammenspiel von DB, Secure Storage und Hasher.
-/// Echtes Argon2 wird hier durch den [FakePasswordHasher] ersetzt –
-/// die Crypto-Korrektheit wird auf Geraet via Integration-Test
-/// abgedeckt.
+/// Tests fuer das neue Biometrie-Only-AuthRepository.
+///
+/// Es gibt kein Passwort mehr — die Methoden sind:
+/// `isSetupComplete`, `completeSetup`, `getAuth`, `resetAccount`.
+/// Echte Biometrie-Pruefung passiert ausserhalb des Repos
+/// (im AuthNotifier, mit `BiometricService`).
 void main() {
-  group('AuthRepositoryImpl', () {
+  group('AuthRepositoryImpl (Biometrie-Only)', () {
     late AuthRepositoryImpl repo;
     late FakeSecureStorageService storage;
 
@@ -18,108 +20,73 @@ void main() {
       final db = await openInMemoryTestDb();
       addTearDown(db.close);
       storage = FakeSecureStorageService();
-      repo = AuthRepositoryImpl(
-        db: db,
-        storage: storage,
-        hasher: FakePasswordHasher(),
-      );
+      repo = AuthRepositoryImpl(db: db, storage: storage);
     });
 
-    test('hasAccount false bevor Account angelegt wird', () async {
-      expect(await repo.hasAccount(), isFalse);
+    test('isSetupComplete = false bevor irgendetwas passiert', () async {
+      expect(await repo.isSetupComplete(), isFalse);
     });
 
-    test('createAccount legt Hash + Salt in Storage und DB ab', () async {
-      await repo.createAccount('geheim123');
-      expect(await repo.hasAccount(), isTrue);
-      expect(await storage.readAuthHash(), isNotNull);
-      expect(await storage.readAuthSalt(), isNotNull);
-
-      final auth = await repo.getAuth();
-      expect(auth, isNotNull);
-      expect(auth!.passwordHash.isNotEmpty, isTrue);
-      expect(auth.passwordSalt.isNotEmpty, isTrue);
+    test('completeSetup legt einen Auth-Datensatz und Setup-Marker an',
+        () async {
+      final auth = await repo.completeSetup();
+      expect(auth.id, isNonZero);
+      expect(await repo.isSetupComplete(), isTrue);
+      expect(await storage.readSetupComplete(), isTrue);
     });
 
-    test('createAccount weigert sich bei zu kurzem Passwort', () async {
+    test('completeSetup wirft, wenn schon gesetzt', () async {
+      await repo.completeSetup();
+      expect(repo.completeSetup, throwsA(isA<StateError>()));
+    });
+
+    test('getAuth liest den Datensatz nach Setup', () async {
+      final created = await repo.completeSetup();
+      final read = await repo.getAuth();
+      expect(read, isNotNull);
+      expect(read!.id, created.id);
+      // Vergleich ueber millisecondsSinceEpoch, weil die Round-trip-
+      // Persistenz nur Millisekunden-Praezision hat (DateTime.now()
+      // hat aber Mikrosekunden).
       expect(
-        () => repo.createAccount('1234'),
-        throwsA(isA<ArgumentError>()),
+        read.createdAt.millisecondsSinceEpoch,
+        created.createdAt.millisecondsSinceEpoch,
       );
     });
 
-    test('createAccount weigert sich, wenn Account schon existiert', () async {
-      await repo.createAccount('geheim123');
-      expect(
-        () => repo.createAccount('andereeingabe'),
-        throwsA(isA<StateError>()),
-      );
+    test('getAuth gibt null wenn kein Datensatz existiert', () async {
+      expect(await repo.getAuth(), isNull);
     });
 
-    test('verifyPassword: korrekte Eingabe → true', () async {
-      await repo.createAccount('geheim123');
-      expect(await repo.verifyPassword('geheim123'), isTrue);
+    test('resetAccount loescht alle Tabellen und den Secure Storage',
+        () async {
+      // Setup + Beispieldaten anlegen
+      await repo.completeSetup();
+      // Kategorie-Zeile, damit wir was zum Loeschen haben
+      final db = await openInMemoryTestDb();
+      addTearDown(db.close);
+      await db.insert(DbTables.categories, <String, Object?>{
+        CategoryCols.id: 'c1',
+        CategoryCols.name: 'X',
+        CategoryCols.colorValue: 0,
+        CategoryCols.iconCodePoint: 0xe000,
+        CategoryCols.isDefault: 0,
+        CategoryCols.isHidden: 0,
+        CategoryCols.createdAt: 0,
+      });
+
+      await repo.resetAccount();
+
+      expect(await repo.isSetupComplete(), isFalse);
+      expect(await repo.getAuth(), isNull);
+      expect(await storage.readSetupComplete(), isFalse);
+      expect(await storage.readDbPassphrase(), isNull);
     });
 
-    test('verifyPassword: falsche Eingabe → false', () async {
-      await repo.createAccount('geheim123');
-      expect(await repo.verifyPassword('falsch456'), isFalse);
-    });
-
-    test('verifyPassword: ohne Account → false (kein crash)', () async {
-      expect(await repo.verifyPassword('egal'), isFalse);
-    });
-
-    test('changePassword aktualisiert Hash und Salt', () async {
-      await repo.createAccount('alt12345');
-      final oldHash = await storage.readAuthHash();
-
-      await repo.changePassword(
-        oldPassword: 'alt12345',
-        newPassword: 'neu67890',
-      );
-
-      final newHash = await storage.readAuthHash();
-      expect(newHash, isNot(oldHash));
-      expect(await repo.verifyPassword('neu67890'), isTrue);
-      expect(await repo.verifyPassword('alt12345'), isFalse);
-    });
-
-    test('changePassword schlaegt fehl bei falschem alten Passwort', () async {
-      await repo.createAccount('alt12345');
-      expect(
-        () => repo.changePassword(
-          oldPassword: 'falsch',
-          newPassword: 'neu67890',
-        ),
-        throwsA(isA<StateError>()),
-      );
-    });
-
-    test('setBiometricEnabled persistiert Flag', () async {
-      await repo.createAccount('geheim123');
-      await repo.setBiometricEnabled(enabled: true);
-      final auth = await repo.getAuth();
-      expect(auth!.biometricEnabled, isTrue);
-      expect(await storage.readBiometricEnabled(), isTrue);
-    });
-
-    test('resetAccount loescht alles bei korrektem Passwort', () async {
-      await repo.createAccount('geheim123');
-      await repo.resetAccount('geheim123');
-
-      expect(await repo.hasAccount(), isFalse);
-      expect(await storage.readAuthHash(), isNull);
-    });
-
-    test('resetAccount weigert sich bei falschem Passwort', () async {
-      await repo.createAccount('geheim123');
-      expect(
-        () => repo.resetAccount('falsch'),
-        throwsA(isA<StateError>()),
-      );
-      // Account ist noch da:
-      expect(await repo.hasAccount(), isTrue);
+    test('isSetupComplete pruft Marker UND DB-Zeile', () async {
+      // Marker im Storage, aber keine Zeile in der DB → unvollstaendig.
+      await storage.writeSetupComplete(complete: true);
+      expect(await repo.isSetupComplete(), isFalse);
     });
   });
 }

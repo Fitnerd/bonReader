@@ -6,6 +6,13 @@ import 'package:bonbudget/data/datasources/secure_storage_service.dart';
 class FakeSecureStorageService implements SecureStorageService {
   final Map<String, String?> _store = <String, String?>{};
 
+  /// Ermoeglicht Tests, Legacy-Werte (Argon2-Hash + Salt) zu seeden,
+  /// um den Migrations-Pfad zu pruefen.
+  void seedLegacyAuth({required String hashBase64, required String saltBase64}) {
+    _store[AppConstants.secureKeyAuthHash] = hashBase64;
+    _store[AppConstants.secureKeyAuthSalt] = saltBase64;
+  }
+
   @override
   Future<String?> readDbPassphrase() async =>
       _store[AppConstants.secureKeyDbPassphrase];
@@ -16,30 +23,12 @@ class FakeSecureStorageService implements SecureStorageService {
   }
 
   @override
-  Future<String?> readAuthHash() async =>
-      _store[AppConstants.secureKeyAuthHash];
+  Future<bool> readSetupComplete() async =>
+      _store[AppConstants.secureKeySetupComplete] == '1';
 
   @override
-  Future<void> writeAuthHash(String value) async {
-    _store[AppConstants.secureKeyAuthHash] = value;
-  }
-
-  @override
-  Future<String?> readAuthSalt() async =>
-      _store[AppConstants.secureKeyAuthSalt];
-
-  @override
-  Future<void> writeAuthSalt(String value) async {
-    _store[AppConstants.secureKeyAuthSalt] = value;
-  }
-
-  @override
-  Future<bool> readBiometricEnabled() async =>
-      _store[AppConstants.secureKeyBiometricEnabled] == '1';
-
-  @override
-  Future<void> writeBiometricEnabled({required bool enabled}) async {
-    _store[AppConstants.secureKeyBiometricEnabled] = enabled ? '1' : '0';
+  Future<void> writeSetupComplete({required bool complete}) async {
+    _store[AppConstants.secureKeySetupComplete] = complete ? '1' : '0';
   }
 
   @override
@@ -65,53 +54,24 @@ class FakeSecureStorageService implements SecureStorageService {
     _store[AppConstants.secureKeyAutoLogoutMin] = clamped.toString();
   }
 
-  // ── Brute-Force-Schutz ──────────────────────────────────────────
+  // ── Legacy-Migration ──────────────────────────────────────────
 
   @override
-  Future<int> readFailedAttempts() async {
-    final raw = _store[AppConstants.secureKeyFailedAttempts];
-    return int.tryParse(raw ?? '') ?? 0;
-  }
+  Future<String?> readAuthHash() async =>
+      _store[AppConstants.secureKeyAuthHash];
 
   @override
-  Future<void> writeFailedAttempts(int count) async {
-    _store[AppConstants.secureKeyFailedAttempts] = count.toString();
-  }
+  Future<String?> readAuthSalt() async =>
+      _store[AppConstants.secureKeyAuthSalt];
 
   @override
-  Future<DateTime?> readCooldownUntil() async {
-    final raw = _store[AppConstants.secureKeyCooldownUntil];
-    if (raw == null) return null;
-    return DateTime.tryParse(raw);
-  }
-
-  @override
-  Future<void> writeCooldownUntil(DateTime? until) async {
-    if (until == null) {
-      _store.remove(AppConstants.secureKeyCooldownUntil);
-    } else {
-      _store[AppConstants.secureKeyCooldownUntil] = until.toIso8601String();
-    }
-  }
-
-  @override
-  Future<void> clearLoginAttempts() async {
+  Future<void> deleteLegacyAuth() async {
+    _store.remove(AppConstants.secureKeyAuthHash);
+    _store.remove(AppConstants.secureKeyAuthSalt);
+    _store.remove(AppConstants.secureKeyBiometricEnabled);
     _store.remove(AppConstants.secureKeyFailedAttempts);
     _store.remove(AppConstants.secureKeyCooldownUntil);
-  }
-
-  // ── Letzter Passwort-Login ────────────────────────────────────
-
-  @override
-  Future<DateTime?> readLastPasswordLogin() async {
-    final raw = _store[AppConstants.secureKeyLastPasswordLogin];
-    if (raw == null) return null;
-    return DateTime.tryParse(raw);
-  }
-
-  @override
-  Future<void> writeLastPasswordLogin(DateTime time) async {
-    _store[AppConstants.secureKeyLastPasswordLogin] = time.toIso8601String();
+    _store.remove(AppConstants.secureKeyLastPasswordLogin);
   }
 
   // ── Wipe ──────────────────────────────────────────────────────

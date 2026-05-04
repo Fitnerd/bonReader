@@ -12,40 +12,40 @@ import 'package:integration_test/integration_test.dart';
 /// ueber Einstellungen machen.)
 ///
 /// Schritte:
-/// 1. App starten → Splash → Register-Screen.
-/// 2. Account anlegen mit „testpasswort1".
+/// 1. App starten → Splash → Setup-Screen.
+/// 2. Setup mit Biometrie-Prompt durchlaufen (Tester muss am Geraet
+///    den Prompt bestaetigen).
 /// 3. Auf Dashboard, „Bon scannen"-FAB sichtbar.
 /// 4. In Budgets navigieren, ein Budget setzen.
 /// 5. Eine Ausgabe manuell erfassen.
 /// 6. Auf Dashboard zurueck und pruefen, dass Restbudget-Anzeige passt.
 ///
-/// Hinweis: Der Test nutzt das echte Argon2 (auf dem Geraet ist das OK),
-/// die echte SQLCipher-DB und Secure Storage. Daher MUESSEN diese
-/// Tests am Ende den Account zuruecksetzen, sonst startet der naechste
-/// Lauf von einem bestehenden Account aus.
+/// Hinweis: Der Test loest echte Biometrie-Prompts aus. Auf dem CI
+/// muss daher entweder ein Geraete-Profil mit aufgezeichneter
+/// Biometrie-Antwort oder ein Override des `biometricServiceProvider`
+/// genutzt werden.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Happy Path: Register → Budget setzen → Ausgabe → Dashboard',
+  testWidgets(
+      'Happy Path: Setup → Budget setzen → Ausgabe → Dashboard',
       (tester) async {
     await tester.pumpWidget(
       const ProviderScope(child: BonBudgetApp()),
     );
 
-    // Splash → Register (weil noch kein Account existiert).
+    // Splash → Setup (weil noch kein Account existiert).
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
     // Falls schon ein Account existiert, koennen wir hier abbrechen –
     // die Annahme „leeres Geraet" ist Vorbedingung.
-    expect(find.text('Willkommen bei ${AppConstants.appName}'), findsOneWidget);
+    expect(find.text('Willkommen bei ${AppConstants.appName}'),
+        findsOneWidget);
 
-    // Passwort eingeben (zweimal) und „Account anlegen".
-    final passwordFields = find.byType(TextField);
-    expect(passwordFields, findsNWidgets(2));
-    await tester.enterText(passwordFields.at(0), 'testpasswort1');
-    await tester.enterText(passwordFields.at(1), 'testpasswort1');
-    await tester.tap(find.text('Account anlegen'));
-    await tester.pumpAndSettle(const Duration(seconds: 5));
+    // Setup-Button antippen. Der echte Biometrie-Prompt muss am Geraet
+    // bestaetigt werden – `pumpAndSettle` wartet auf die Antwort.
+    await tester.tap(find.text('Mit Biometrie einrichten'));
+    await tester.pumpAndSettle(const Duration(seconds: 10));
 
     // Jetzt sollten wir auf dem Dashboard sein.
     expect(find.text(AppConstants.appName), findsWidgets);

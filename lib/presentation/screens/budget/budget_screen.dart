@@ -55,6 +55,27 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   }
 
   Future<void> _saveAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Budgets speichern?'),
+        content: Text(
+          'Neues Gesamt-Budget: '
+          '${CurrencyFormatter.formatCents(_liveTotalCents())}',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     setState(() => _saving = true);
     final notifier = ref.read(budgetsProvider.notifier);
     for (final entry in _controllers.entries) {

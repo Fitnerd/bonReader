@@ -64,6 +64,12 @@ class _AutoLogoutListenerState extends ConsumerState<AutoLogoutListener>
   }
 
   void _logout() {
+    // Timer canceln, bevor wir den Logout aussenden. Sonst kann der Timer
+    // mitten im Dispose noch einmal feuern und auf einem disposed Ref
+    // arbeiten.
+    _timer?.cancel();
+    _timer = null;
+    if (!mounted) return;
     ref.read(authStateProvider.notifier).logout();
   }
 

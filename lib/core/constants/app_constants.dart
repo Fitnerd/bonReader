@@ -15,57 +15,67 @@ class AppConstants {
   /// Auto-Logout nach Inaktivitaet (in Minuten). Spaeter konfigurierbar.
   static const int defaultAutoLogoutMinutes = 5;
 
-  /// Maximale Anzahl Login-Fehlversuche, bevor eine Pause erzwungen wird.
-  static const int maxLoginAttempts = 5;
+  /// Erlaubter Bereich fuer Auto-Logout (in Minuten).
+  static const int minAutoLogoutMinutes = 1;
+  static const int maxAutoLogoutMinutes = 30;
 
-  /// Pause nach zu vielen Fehlversuchen (erstes Mal).
-  /// Das tatsaechliche Cooldown steigt exponentiell:
-  /// 1 Min → 5 Min → 15 Min → 60 Min.
-  static const Duration loginCooldown = Duration(minutes: 1);
-
-  /// Exponentielles Backoff: Multiplikatoren fuer aufeinanderfolgende
-  /// Cooldowns (basierend auf der Anzahl der Cooldown-Zyklen).
-  static const List<int> cooldownMultipliers = <int>[1, 5, 15, 60];
-
-  /// Argon2id-Parameter (RFC 9106 empfiehlt mindestens diese Werte
-  /// fuer interaktive Anmeldung auf mobilen Geraeten).
+  /// Argon2id-Parameter werden NUR noch fuer den Legacy-Migrations-Pfad
+  /// gebraucht (alte Installationen, die noch ein App-Passwort hatten).
+  /// In neuen Setups gibt es kein Passwort mehr; die DB-Passphrase wird
+  /// durch das Betriebssystem (Biometrie / Geraete-PIN) freigegeben.
   static const int argon2Iterations = 3;
   static const int argon2MemoryKb = 65536; // 64 MB
   static const int argon2Parallelism = 4;
   static const int argon2HashLength = 32;
   static const int argon2SaltLength = 16;
 
-  /// Erlaubter Bereich fuer Auto-Logout (in Minuten).
-  static const int minAutoLogoutMinutes = 1;
-  static const int maxAutoLogoutMinutes = 30;
-
   /// Schluessel fuer Secure Storage. NICHT die Werte selbst, nur die Keys.
   static const String secureKeyDbPassphrase = 'bonbudget.db.passphrase';
-  static const String secureKeyAuthHash = 'bonbudget.auth.hash';
-  static const String secureKeyAuthSalt = 'bonbudget.auth.salt';
-  static const String secureKeyBiometricEnabled = 'bonbudget.auth.biometric';
+
+  /// Marker, dass das Biometrie-Setup abgeschlossen ist. Damit weiss die
+  /// App beim Start, ob sie zum Setup-Screen oder zum Unlock-Screen muss,
+  /// ohne die DB oeffnen zu muessen.
+  static const String secureKeySetupComplete = 'bonbudget.setup.complete';
+
+  /// Auto-Logout-Timeout (Minuten als String).
   static const String secureKeyAutoLogoutMin = 'bonbudget.auth.autologout.min';
+
+  // ──────────────────────────────────────────────────────────────────
+  // Legacy-Keys (nur Lesen / Loeschen waehrend Migration v3)
+  // ──────────────────────────────────────────────────────────────────
+  /// LEGACY: Argon2id-Hash des alten App-Passworts.
+  static const String secureKeyAuthHash = 'bonbudget.auth.hash';
+
+  /// LEGACY: Salt fuer den Argon2id-Hash.
+  static const String secureKeyAuthSalt = 'bonbudget.auth.salt';
+
+  /// LEGACY: Brute-Force- und Banking-72h-Reste, werden bei Migration
+  /// und Reset einfach mit weggewischt.
+  static const String secureKeyBiometricEnabled = 'bonbudget.auth.biometric';
   static const String secureKeyFailedAttempts = 'bonbudget.auth.failed_attempts';
   static const String secureKeyCooldownUntil = 'bonbudget.auth.cooldown_until';
   static const String secureKeyLastPasswordLogin =
       'bonbudget.auth.last_password_login';
 
-  /// Nach dieser Dauer muss auch bei aktivierter Biometrie das Passwort
-  /// erneut eingegeben werden (Defence-in-Depth, wie bei Banking-Apps).
-  static const Duration biometricPasswordRequiredAfter =
-      Duration(hours: 72);
-
   /// Datenbankname (wird im App-internen Documents-Ordner gespeichert).
   static const String databaseFileName = 'bonbudget.db';
-
-  // TODO(security): Export-Verschluesselung.
-  // Falls ein CSV-/JSON-Export oder Cloud-Backup implementiert wird,
-  // muessen die exportierten Daten mit einem vom Nutzerpasswort
-  // abgeleiteten Key (Argon2) oder einem separaten Export-Passwort
-  // verschluesselt werden. Klartextexporte waeren ein Sicherheitsrisiko.
 
   /// Datenbank-Versionierung.
   /// V1: initiales Schema.
   /// V2: expense_items.total_cents darf negativ sein (Pfand/Leergut).
-  static const int databaseVersion = 2;
+  /// V3: Auth-Tabelle ohne Passwort-Hash (Biometrie-Only).
+  static const int databaseVersion = 3;
+
+  // ──────────────────────────────────────────────────────────────────
+  // UI-Schwellenwerte (vorher als Magic Numbers ueber den Code verteilt)
+  // ──────────────────────────────────────────────────────────────────
+
+  /// Ab wann ein Budget-Balken als „kritisch ausgereizt" markiert wird
+  /// (Anteil 0.0–1.0). Im Dashboard: Farbwechsel auf Warn-Farbe.
+  static const double budgetWarningThreshold = 0.85;
+
+  /// Plausibilitaets-Obergrenze fuer einzelne Bon-Positionen in Cent.
+  /// Werte darueber werden vom Receipt-Parser verworfen, weil das fast
+  /// immer ein OCR-Fehler ist (z. B. ein als Preis erkanntes Datum).
+  static const int receiptParserMaxCents = 100000;
 }

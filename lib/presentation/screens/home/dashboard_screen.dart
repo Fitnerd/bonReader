@@ -144,30 +144,36 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     ),
                   )
-                else
-                  for (final e in monthExpenses.take(5))
-                    _RecentExpenseTile(
-                      expense: e,
-                      category: _findCat(categories, e.categoryId),
-                      onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) => ExpenseFormScreen(existing: e),
-                        ));
-                      },
-                    ),
+                else ...<Widget>[
+                  // Map-Lookup statt linearer Suche pro Eintrag.
+                  Builder(builder: (_) {
+                    final byId = <String, Category>{
+                      for (final c in categories) c.id: c,
+                    };
+                    return Column(
+                      children: <Widget>[
+                        for (final e in monthExpenses.take(5))
+                          _RecentExpenseTile(
+                            expense: e,
+                            category: byId[e.categoryId],
+                            onTap: () {
+                              Navigator.of(context)
+                                  .push(MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    ExpenseFormScreen(existing: e),
+                              ));
+                            },
+                          ),
+                      ],
+                    );
+                  }),
+                ],
               ],
             );
           },
         ),
       ),
     );
-  }
-
-  Category? _findCat(List<Category> all, String id) {
-    for (final c in all) {
-      if (c.id == id) return c;
-    }
-    return null;
   }
 
   Future<void> _pickRange(
@@ -205,7 +211,7 @@ class _BudgetRingCard extends StatelessWidget {
         ? theme.colorScheme.outlineVariant
         : ratio > 1.0
             ? theme.colorScheme.error
-            : ratio > 0.85
+            : ratio > AppConstants.budgetWarningThreshold
                 ? Colors.amber
                 : theme.colorScheme.primary;
 
@@ -362,7 +368,7 @@ class _CategoryStatusTile extends StatelessWidget {
         ? theme.colorScheme.outlineVariant
         : overspent
             ? theme.colorScheme.error
-            : ratio > 0.85
+            : ratio > AppConstants.budgetWarningThreshold
                 ? Colors.amber
                 : category.color;
 

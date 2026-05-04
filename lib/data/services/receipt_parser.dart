@@ -1,3 +1,4 @@
+import '../../core/constants/app_constants.dart';
 import '../../domain/repositories/expense_repository.dart';
 
 /// Resultat der heuristischen Bon-Auswertung.
@@ -166,7 +167,8 @@ class ReceiptParser {
       final year = yearRaw < 100 ? 2000 + yearRaw : yearRaw;
       try {
         return DateTime(year, month, day);
-      } catch (_) {
+      } on ArgumentError {
+        // Z. B. 31.02.2026 - ungueltiges Datum, naechste Zeile probieren.
         continue;
       }
     }
@@ -246,7 +248,7 @@ class ReceiptParser {
       // Pfand / Leergut: eigene Behandlung mit Vorzeichen.
       if (_pfandKeyword.hasMatch(lower)) {
         final signed = _signedPriceFromLine(raw);
-        if (signed != null && signed.abs() <= 100000) {
+        if (signed != null && signed.abs() <= AppConstants.receiptParserMaxCents) {
           var name = raw.replaceFirst(_signedPriceAtEnd, '').trim();
           name = name.replaceAll(RegExp(r'[\*\s]+[ABab]\s*$'), '').trim();
           if (name.isEmpty) name = signed < 0 ? 'Leergut' : 'Pfand';
@@ -296,7 +298,7 @@ class ReceiptParser {
         continue;
       }
 
-      if (cents > 100000) {
+      if (cents > AppConstants.receiptParserMaxCents) {
         pendingName = null;
         continue;
       }
@@ -371,7 +373,7 @@ class ReceiptParser {
   /// Parst die Mengen-Angabe einer Mengenzeile. Akzeptiert ganze Zahlen
   /// (`2`) und Dezimal-Mengen (`1,558` oder `1.558` fuer kg-Ware).
   static double _parseQuantity(String raw) {
-    var s = raw.replaceAll(' ', '').replaceAll(',', '.');
+    final s = raw.replaceAll(' ', '').replaceAll(',', '.');
     return double.tryParse(s) ?? 1.0;
   }
 }
