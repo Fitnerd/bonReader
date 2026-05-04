@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/ocr_providers.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../data/services/category_classifier.dart';
 import '../../../data/services/photo_capture_service.dart';
 import '../../../data/services/receipt_parser.dart';
 import '../../providers/categories_state.dart';
@@ -74,12 +75,25 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
       if (!mounted) return;
 
-      // Erste sichtbare Kategorie als Default; explizite Zuordnung
-      // erledigt der Nutzer.
+      // Vorgeschlagene Kategorie aus Item-Namen ableiten (Heuristik).
+      // Faellt auf die erste sichtbare Kategorie zurueck, wenn der
+      // Classifier keinen Treffer hat oder der Slug nicht zu einer
+      // sichtbaren Kategorie matcht.
       String? categoryId;
       try {
         final cats = await ref.read(visibleCategoriesProvider.future);
-        if (cats.isNotEmpty) categoryId = cats.first.id;
+        if (cats.isNotEmpty) {
+          final slug = const CategoryClassifier().suggestSlug(parsed.items);
+          if (slug != null) {
+            for (final c in cats) {
+              if (c.name.toLowerCase() == slug) {
+                categoryId = c.id;
+                break;
+              }
+            }
+          }
+          categoryId ??= cats.first.id;
+        }
       } catch (_) {}
 
       final prefill = ExpensePrefill(
