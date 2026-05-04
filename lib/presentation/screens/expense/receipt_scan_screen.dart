@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,7 +67,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
       final ocrResult = await ocr.recognize(image);
       final parsed = ReceiptParser.parse(ocrResult.lines);
-      print('OCR LINES: ${ocrResult.lines}');
+      if (kDebugMode) debugPrint('OCR LINES: ${ocrResult.lines}');
 
       // Foto loeschen, BEVOR wir weiter navigieren – das Bild war nur
       // fuer die OCR noetig.
@@ -122,9 +123,14 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         builder: (_) => ExpenseFormScreen(prefill: prefill),
       ));
     } catch (e) {
+      if (kDebugMode) debugPrint('OCR error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('OCR fehlgeschlagen: $e')),
+          const SnackBar(
+            content: Text(
+              'Bon konnte nicht gelesen werden. Bitte erneut versuchen.',
+            ),
+          ),
         );
       }
     } finally {
