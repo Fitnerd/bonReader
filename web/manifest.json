@@ -1,11 +1,11 @@
 {
-    "name": "bonbudget",
-    "short_name": "bonbudget",
+    "name": "BonReader",
+    "short_name": "BonReader",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Lokaler Bon- und Budget-Tracker mit OCR-Erkennung.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
@@ -29,7 +29,4 @@
             "src": "icons/Icon-maskable-512.png",
             "sizes": "512x512",
             "type": "image/png",
-            "purpose": "maskable"
-        }
-    ]
-}
+            "purpose": "mask
