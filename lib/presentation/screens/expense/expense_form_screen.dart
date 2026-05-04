@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../domain/entities/category.dart';
 import '../../../domain/entities/expense.dart';
@@ -187,17 +189,18 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   Future<void> _save() async {
+    final l10n = AppLocalizations.of(context)!;
     if (!_formKey.currentState!.validate()) return;
     if (_categoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bitte eine Kategorie waehlen.')),
+        SnackBar(content: Text(l10n.expenseFormSelectCategory)),
       );
       return;
     }
     final total = _effectiveTotalCents;
     if (total == null || total <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Betrag muss groesser 0 sein.')),
+        SnackBar(content: Text(l10n.expenseFormAmountGreaterZero)),
       );
       return;
     }
@@ -219,7 +222,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               : _items
                   .map((i) => ExpenseItemDraft(
                         name: i.nameCtrl.text.trim(),
-                        quantity: i.quantity,
+                        quantityMilli: i.quantityMilli,
                         unitPriceCents: i.unitPriceCents ?? 0,
                         totalCents: i.totalCents ?? 0,
                       ))
@@ -235,7 +238,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       id: i.id ?? const Uuid().v4(),
                       expenseId: existing.id,
                       name: i.nameCtrl.text.trim(),
-                      quantity: i.quantity,
+                      quantityMilli: i.quantityMilli,
                       unitPriceCents: i.unitPriceCents ?? 0,
                       totalCents: i.totalCents ?? 0,
                     ))
@@ -254,7 +257,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Speichern: $e')),
+          SnackBar(content: Text(l10n.expenseFormSaveError('$e'))),
         );
       }
     } finally {
@@ -265,28 +268,28 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final isEdit = widget.existing != null;
     final isPrefill = widget.prefill != null;
     final asyncCats = ref.watch(visibleCategoriesProvider);
     final title = isEdit
-        ? 'Ausgabe bearbeiten'
+        ? l10n.expenseFormTitleEdit
         : isPrefill
-            ? 'Ausgabe pruefen & speichern'
-            : 'Neue Ausgabe';
+            ? l10n.expenseFormTitleReview
+            : l10n.expenseFormTitleNew;
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: asyncCats.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
+        error: (e, _) => Center(child: Text(l10n.commonErrorWithDetail('$e'))),
         data: (categories) {
           if (categories.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Keine sichtbaren Kategorien. Bitte erst eine Kategorie '
-                  'anlegen.',
+                  l10n.expenseFormNoVisibleCategories,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -300,19 +303,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: <Widget>[
-                _SectionHeader(theme: theme, label: 'Modus'),
+                _SectionHeader(theme: theme, label: l10n.expenseFormModeSection),
                 Center(
                   child: SegmentedButton<bool>(
-                    segments: const <ButtonSegment<bool>>[
+                    segments: <ButtonSegment<bool>>[
                       ButtonSegment<bool>(
                         value: false,
-                        label: Text('Mit Positionen'),
-                        icon: Icon(Icons.list_alt_rounded),
+                        label: Text(l10n.expenseFormModeWithItems),
+                        icon: const Icon(Icons.list_alt_rounded),
                       ),
                       ButtonSegment<bool>(
                         value: true,
-                        label: Text('Nur Gesamtbetrag'),
-                        icon: Icon(Icons.functions_rounded),
+                        label: Text(l10n.expenseFormModeOnlyTotal),
+                        icon: const Icon(Icons.functions_rounded),
                       ),
                     ],
                     selected: <bool>{_summarizeOnly},
@@ -324,21 +327,20 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'Positionen werden nicht gespeichert. Default-'
-                      'Kategorie ist "Sonstiges" - du kannst auch eine '
-                      'andere waehlen.',
+                      l10n.expenseFormModeOnlyTotalHint,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
                 const SizedBox(height: 16),
-                _SectionHeader(theme: theme, label: 'Allgemein'),
+                _SectionHeader(
+                    theme: theme, label: l10n.expenseFormGeneralSection),
                 TextFormField(
                   controller: _merchantCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Haendler',
-                    hintText: 'z. B. Rewe, Aldi',
+                  decoration: InputDecoration(
+                    labelText: l10n.expenseFormMerchantLabel,
+                    hintText: l10n.expenseFormMerchantHint,
                   ),
                   textCapitalization: TextCapitalization.words,
                   maxLength: 50,
@@ -355,7 +357,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   onTap: _pickDate,
                 ),
                 const SizedBox(height: 16),
-                _SectionHeader(theme: theme, label: 'Betrag'),
+                _SectionHeader(
+                    theme: theme, label: l10n.expenseFormAmountSection),
                 // Live-Summe aus Positionen (nur wenn welche existieren)
                 if (_hasItems && !_summarizeOnly)
                   Container(
@@ -370,8 +373,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Aus Positionen: '
-                            '${CurrencyFormatter.formatCents(_itemsTotalCents)}',
+                            l10n.expenseFormItemsSum(
+                              CurrencyFormatter.formatCents(_itemsTotalCents),
+                            ),
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: theme.colorScheme.onPrimaryContainer,
                             ),
@@ -392,8 +396,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   ),
                   decoration: InputDecoration(
                     labelText: (_hasItems && !_summarizeOnly)
-                        ? 'Gesamtbetrag (ueberschreibt Positionen-Summe)'
-                        : 'Gesamtbetrag',
+                        ? l10n.expenseFormTotalLabelOverridesItems
+                        : l10n.expenseFormTotalLabel,
                     suffixText: '€',
                     hintText: '0,00',
                   ),
@@ -407,7 +411,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       return null;
                     }
                     if (manual == null || manual <= 0) {
-                      return 'Bitte einen Betrag > 0 eingeben';
+                      return l10n.expenseFormTotalValidation;
                     }
                     return null;
                   },
@@ -416,19 +420,18 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 if (!_summarizeOnly) ...<Widget>[
                   _SectionHeader(
                     theme: theme,
-                    label: 'Positionen (optional)',
+                    label: l10n.expenseFormItemsSection,
                     trailing: TextButton.icon(
                       onPressed: _addItem,
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('Hinzufuegen'),
+                      label: Text(l10n.commonAdd),
                     ),
                   ),
                   if (_items.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
-                        'Keine Positionen erfasst. Wenn du den Bon abfotografierst, '
-                        'fuellt der OCR-Parser das automatisch.',
+                        l10n.expenseFormItemsEmpty,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -446,11 +449,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       ),
                   const SizedBox(height: 16),
                 ],
-                _SectionHeader(theme: theme, label: 'Notiz (optional)'),
+                _SectionHeader(
+                    theme: theme, label: l10n.expenseFormNoteSection),
                 TextFormField(
                   controller: _noteCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'z. B. Wocheneinkauf',
+                  decoration: InputDecoration(
+                    hintText: l10n.expenseFormNoteHint,
                   ),
                   maxLines: 2,
                   maxLength: 200,
@@ -464,7 +468,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(isEdit ? 'Speichern' : 'Ausgabe anlegen'),
+                      : Text(isEdit
+                          ? l10n.commonSave
+                          : l10n.expenseFormCreateButton),
                 ),
               ],
             ),
@@ -521,9 +527,11 @@ class _CategoryDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return DropdownButtonFormField<String>(
       initialValue: value,
-      decoration: const InputDecoration(labelText: 'Kategorie'),
+      decoration:
+          InputDecoration(labelText: l10n.expenseFormCategoryLabel),
       items: <DropdownMenuItem<String>>[
         for (final c in categories)
           DropdownMenuItem<String>(
@@ -551,13 +559,14 @@ class _DatePickerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final formatted =
         '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: InputDecorator(
-        decoration: const InputDecoration(labelText: 'Datum'),
+        decoration: InputDecoration(labelText: l10n.expenseFormDateLabel),
         child: Row(
           children: <Widget>[
             Expanded(child: Text(formatted)),
@@ -577,13 +586,13 @@ class _ItemDraft {
     this.id,
     required this.nameCtrl,
     required this.priceCtrl,
-    required this.quantity,
+    required this.quantityMilli,
   });
 
   factory _ItemDraft.empty() => _ItemDraft(
         nameCtrl: TextEditingController(),
         priceCtrl: TextEditingController(),
-        quantity: 1,
+        quantityMilli: AppConstants.quantityMilliPerUnit,
       );
 
   factory _ItemDraft.fromItem(ExpenseItem item) => _ItemDraft(
@@ -592,7 +601,7 @@ class _ItemDraft {
         priceCtrl: TextEditingController(
           text: (item.totalCents / 100).toStringAsFixed(2).replaceAll('.', ','),
         ),
-        quantity: item.quantity,
+        quantityMilli: item.quantityMilli,
       );
 
   /// Aus OCR-Pre-Fill (noch keine ID, wird beim Speichern vergeben).
@@ -601,13 +610,13 @@ class _ItemDraft {
         priceCtrl: TextEditingController(
           text: (d.totalCents / 100).toStringAsFixed(2).replaceAll('.', ','),
         ),
-        quantity: d.quantity,
+        quantityMilli: d.quantityMilli,
       );
 
   final String? id;
   final TextEditingController nameCtrl;
   final TextEditingController priceCtrl;
-  double quantity;
+  int quantityMilli;
 
   int? get totalCents => CurrencyFormatter.parseToCents(priceCtrl.text);
 
@@ -616,8 +625,10 @@ class _ItemDraft {
   int? get unitPriceCents {
     final t = totalCents;
     if (t == null) return null;
-    if (quantity <= 0) return t;
-    return (t / quantity).round();
+    if (quantityMilli <= 0) return t;
+    // unitPriceCents = totalCents / (quantityMilli / 1000)
+    //                = totalCents * 1000 / quantityMilli
+    return (t * AppConstants.quantityMilliPerUnit / quantityMilli).round();
   }
 
   void dispose() {
@@ -639,6 +650,7 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
@@ -648,8 +660,8 @@ class _ItemRow extends StatelessWidget {
               flex: 3,
               child: TextField(
                 controller: draft.nameCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'Position',
+                decoration: InputDecoration(
+                  hintText: l10n.expenseFormItemHint,
                   isDense: true,
                 ),
                 textCapitalization: TextCapitalization.sentences,
@@ -675,7 +687,7 @@ class _ItemRow extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.close_rounded),
-              tooltip: 'Position entfernen',
+              tooltip: l10n.expenseFormItemRemoveTooltip,
               onPressed: onRemove,
             ),
           ],

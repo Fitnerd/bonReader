@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/ocr_providers.dart';
@@ -34,11 +35,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   String? _statusText;
 
   Future<void> _scanFrom(PhotoSource source) async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
       _busy = true;
       _statusText = source == PhotoSource.camera
-          ? 'Kamera wird geoeffnet...'
-          : 'Galerie wird geoeffnet...';
+          ? l10n.receiptScanOpeningCamera
+          : l10n.receiptScanOpeningGallery;
     });
 
     final capture = ref.read(photoCaptureServiceProvider);
@@ -63,7 +65,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         return;
       }
 
-      setState(() => _statusText = 'Bon wird gelesen...');
+      setState(() => _statusText = l10n.receiptScanReading);
 
       final ocrResult = await ocr.recognize(image);
       final parsed = ReceiptParser.parse(ocrResult.lines);
@@ -109,9 +111,10 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Erkennung unsicher (${(parsed.confidence * 100).round()} %). '
-              'Bitte Werte pruefen. '
-              'Total: ${CurrencyFormatter.formatCents(parsed.totalCents)}',
+              l10n.receiptScanLowConfidence(
+                (parsed.confidence * 100).round(),
+                CurrencyFormatter.formatCents(parsed.totalCents),
+              ),
             ),
             duration: const Duration(seconds: 5),
           ),
@@ -126,10 +129,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       if (kDebugMode) debugPrint('OCR error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Bon konnte nicht gelesen werden. Bitte erneut versuchen.',
-            ),
+          SnackBar(
+            content: Text(l10n.receiptScanFailed),
           ),
         );
       }
@@ -151,8 +152,9 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Bon scannen')),
+      appBar: AppBar(title: Text(l10n.receiptScanTitle)),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -169,16 +171,14 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                             color: theme.colorScheme.primary),
                         const SizedBox(width: 8),
                         Text(
-                          'Privacy first',
+                          l10n.receiptScanPrivacyTitle,
                           style: theme.textTheme.titleMedium,
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Das Bild bleibt auf deinem Geraet. Es wird lokal '
-                      'kontrastoptimiert, dann laeuft die OCR on-device. '
-                      'Nach der Auswertung wird das Foto sofort geloescht.',
+                      l10n.receiptScanPrivacyBody,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -191,13 +191,13 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
             FilledButton.icon(
               onPressed: _busy ? null : () => _scanFrom(PhotoSource.camera),
               icon: const Icon(Icons.camera_alt_rounded),
-              label: const Text('Foto aufnehmen'),
+              label: Text(l10n.receiptScanCamera),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _busy ? null : () => _scanFrom(PhotoSource.gallery),
               icon: const Icon(Icons.photo_library_rounded),
-              label: const Text('Aus Galerie waehlen'),
+              label: Text(l10n.receiptScanGallery),
             ),
             const SizedBox(height: 32),
             if (_busy)

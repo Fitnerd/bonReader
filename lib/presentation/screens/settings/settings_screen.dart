@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -14,63 +15,59 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final asyncTimeout = ref.watch(autoLogoutMinutesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Einstellungen')),
+      appBar: AppBar(title: Text(l10n.settingsTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          _SectionTitle(label: 'Sicherheit', theme: theme),
+          _SectionTitle(label: l10n.settingsSecuritySection, theme: theme),
           const _BiometricStatusTile(),
           const Divider(height: 1),
           asyncTimeout.when(
-            loading: () => const ListTile(
-              leading: Icon(Icons.timer_outlined),
-              title: Text('Auto-Logout'),
-              subtitle: Text('Lade…'),
+            loading: () => ListTile(
+              leading: const Icon(Icons.timer_outlined),
+              title: Text(l10n.settingsAutoLogoutTitle),
+              subtitle: Text(l10n.settingsAutoLogoutLoading),
             ),
-            error: (e, _) => const ListTile(
-              leading: Icon(Icons.timer_outlined),
-              title: Text('Auto-Logout'),
-              subtitle:
-                  Text('Einstellung konnte nicht geladen werden.'),
+            error: (e, _) => ListTile(
+              leading: const Icon(Icons.timer_outlined),
+              title: Text(l10n.settingsAutoLogoutTitle),
+              subtitle: Text(l10n.settingsAutoLogoutLoadError),
             ),
             data: (minutes) => _AutoLogoutTile(minutes: minutes),
           ),
           const SizedBox(height: 24),
-          _SectionTitle(label: 'Daten', theme: theme),
+          _SectionTitle(label: l10n.settingsDataSection, theme: theme),
           ListTile(
             leading: Icon(
               Icons.delete_forever_rounded,
               color: theme.colorScheme.error,
             ),
             title: Text(
-              'Account und alle Daten loeschen',
+              l10n.settingsDeleteAccountTitle,
               style: TextStyle(color: theme.colorScheme.error),
             ),
-            subtitle: const Text(
-                'Unwiderruflich. Setzt die App auf Werkseinstellungen zurueck.'),
+            subtitle: Text(l10n.settingsDeleteAccountSubtitle),
             onTap: () => _showResetSheet(context),
           ),
           const SizedBox(height: 24),
-          _SectionTitle(label: 'Ueber', theme: theme),
+          _SectionTitle(label: l10n.settingsAboutSection, theme: theme),
           ListTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: const Text('Ueber ${AppConstants.appName}'),
-            subtitle: const Text('Lokal, privacy-first, keine Cloud.'),
+            title: Text(l10n.settingsAboutAppTitle(AppConstants.appName)),
+            subtitle: Text(l10n.settingsAboutSubtitle),
             onTap: () => showAboutDialog(
               context: context,
               applicationName: AppConstants.appName,
-              applicationLegalese:
-                  'Alle Daten bleiben lokal auf diesem Geraet. '
-                  'AES-256 verschluesselte Datenbank. Zugriff per '
-                  'Biometrie / Geraete-PIN.',
+              applicationLegalese: l10n.settingsAboutLegalese,
             ),
           ),
           ListTile(
             leading: const Icon(Icons.gavel_rounded),
-            title: const Text('Open-Source-Lizenzen'),
+            title: Text(l10n.settingsLicensesTitle),
             onTap: () => showLicensePage(
               context: context,
               applicationName: AppConstants.appName,
@@ -135,18 +132,16 @@ class _BiometricStatusTileState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final available = _available;
     return ListTile(
       leading: const Icon(Icons.fingerprint_rounded),
-      title: const Text('Biometrie / Geraete-PIN'),
+      title: Text(l10n.settingsBiometricsTitle),
       subtitle: Text(
         switch (available) {
-          null => 'Pruefe…',
-          true =>
-            'Aktiv. Nur Biometrie oder Geraete-PIN gibt Zugriff frei.',
-          false =>
-            'Auf dem Geraet ist keine Biometrie eingerichtet. '
-                'Bitte System-Einstellungen pruefen.',
+          null => l10n.settingsBiometricsChecking,
+          true => l10n.settingsBiometricsActive,
+          false => l10n.settingsBiometricsNone,
         },
       ),
     );
@@ -160,6 +155,7 @@ class _AutoLogoutTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
@@ -171,12 +167,12 @@ class _AutoLogoutTile extends ConsumerWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
-                  'Auto-Logout',
+                  l10n.settingsAutoLogoutTitle,
                   style: theme.textTheme.bodyLarge,
                 ),
               ),
               Text(
-                '$minutes ${minutes == 1 ? 'Minute' : 'Minuten'}',
+                l10n.settingsAutoLogoutValue(minutes),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w600,
@@ -190,7 +186,7 @@ class _AutoLogoutTile extends ConsumerWidget {
             max: AppConstants.maxAutoLogoutMinutes.toDouble(),
             divisions: AppConstants.maxAutoLogoutMinutes -
                 AppConstants.minAutoLogoutMinutes,
-            label: '$minutes Min',
+            label: l10n.settingsAutoLogoutSliderLabel(minutes),
             onChanged: (v) {
               ref
                   .read(autoLogoutMinutesProvider.notifier)
@@ -198,9 +194,7 @@ class _AutoLogoutTile extends ConsumerWidget {
             },
           ),
           Text(
-            'Nach so vielen Minuten ohne Bedienung wirst du abgemeldet. '
-            'Beim Wechsel in den Hintergrund passiert das sofort, '
-            'unabhaengig vom Wert.',
+            l10n.settingsAutoLogoutDescription,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -226,6 +220,7 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
 
   Future<void> _submit() async {
     if (!_confirmed) return;
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
       _busy = true;
       _error = null;
@@ -239,12 +234,11 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Account und alle Daten geloescht.')),
+        SnackBar(content: Text(l10n.settingsResetSnack)),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Fehler beim Zuruecksetzen.');
+      setState(() => _error = l10n.settingsResetError);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -253,19 +247,17 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       title: Text(
-        'Wirklich alles loeschen?',
+        l10n.settingsResetTitle,
         style: TextStyle(color: theme.colorScheme.error),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'Account, alle Kategorien, Budgets und Ausgaben werden '
-            'unwiderruflich entfernt. Es gibt keinen Backup.',
-          ),
+          Text(l10n.settingsResetBody),
           const SizedBox(height: 12),
           CheckboxListTile(
             value: _confirmed,
@@ -273,8 +265,7 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
             dense: true,
-            title: const Text(
-                'Mir ist klar, dass das nicht rueckgaengig zu machen ist.'),
+            title: Text(l10n.settingsResetConfirmCheck),
           ),
           if (_error != null) ...<Widget>[
             const SizedBox(height: 8),
@@ -288,7 +279,7 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: _busy ? null : () => Navigator.pop(context),
-          child: const Text('Abbrechen'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -302,7 +293,7 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Endgueltig loeschen'),
+              : Text(l10n.settingsResetConfirmAction),
         ),
       ],
     );

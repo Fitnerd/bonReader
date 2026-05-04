@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -42,6 +43,7 @@ class _LegacyMigrationScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final auth = ref.watch(authStateProvider);
     final isWorking = auth.value?.status == AuthStatus.unlocking;
     final error = auth.value?.errorMessage;
@@ -63,7 +65,7 @@ class _LegacyMigrationScreenState
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '${AppConstants.appName}: Anmeldung umstellen',
+                  l10n.legacyMigrationTitle(AppConstants.appName),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w600,
@@ -71,8 +73,7 @@ class _LegacyMigrationScreenState
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Wir stellen die Anmeldung auf Biometrie um. Dafuer '
-                  'brauchen wir einmal dein altes App-Passwort.',
+                  l10n.legacyMigrationExplanation,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -85,7 +86,7 @@ class _LegacyMigrationScreenState
                   enableSuggestions: false,
                   autocorrect: false,
                   decoration: InputDecoration(
-                    labelText: 'Bisheriges Passwort',
+                    labelText: l10n.legacyMigrationOldPasswordLabel,
                     suffixIcon: IconButton(
                       icon: Icon(_obscure
                           ? Icons.visibility_rounded
@@ -94,8 +95,9 @@ class _LegacyMigrationScreenState
                           setState(() => _obscure = !_obscure),
                     ),
                   ),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'Bitte eingeben.' : null,
+                  validator: (v) => (v == null || v.isEmpty)
+                      ? l10n.legacyMigrationEmptyError
+                      : null,
                 ),
                 if (error != null) ...<Widget>[
                   const SizedBox(height: 16),
@@ -114,7 +116,7 @@ class _LegacyMigrationScreenState
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Auf Biometrie umstellen'),
+                      : Text(l10n.legacyMigrationButton),
                 ),
               ],
             ),

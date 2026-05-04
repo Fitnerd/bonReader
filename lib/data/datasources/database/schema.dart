@@ -52,7 +52,10 @@ class ExpenseItemCols {
   static const String id = 'id';
   static const String expenseId = 'expense_id';
   static const String name = 'name';
-  static const String quantity = 'quantity';
+
+  /// Stueckzahl als Integer mit Faktor 1000 (1500 = 1,5 Stueck).
+  /// Vermeidet die IEEE-754-Rundungsfehler des alten REAL-Felds.
+  static const String quantityMilli = 'quantity_milli';
   static const String unitPriceCents = 'unit_price_cents';
   static const String totalCents = 'total_cents';
 }

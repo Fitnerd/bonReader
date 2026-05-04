@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/currency_formatter.dart';
@@ -55,22 +56,24 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   }
 
   Future<void> _saveAll() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Budgets speichern?'),
+        title: Text(l10n.budgetSaveDialogTitle),
         content: Text(
-          'Neues Gesamt-Budget: '
-          '${CurrencyFormatter.formatCents(_liveTotalCents())}',
+          l10n.budgetSaveDialogBody(
+            CurrencyFormatter.formatCents(_liveTotalCents()),
+          ),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Abbrechen'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Speichern'),
+            child: Text(l10n.commonSave),
           ),
         ],
       ),
@@ -92,7 +95,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     if (mounted) {
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Budgets gespeichert.')),
+        SnackBar(content: Text(l10n.budgetSavedSnack)),
       );
     }
   }
@@ -100,17 +103,19 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final asyncCats = ref.watch(visibleCategoriesProvider);
     final asyncBudgets = ref.watch(budgetsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Budgets')),
+      appBar: AppBar(title: Text(l10n.budgetTitle)),
       body: asyncCats.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
+        error: (e, _) => Center(child: Text(l10n.commonErrorWithDetail('$e'))),
         data: (cats) => asyncBudgets.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Fehler: $e')),
+          error: (e, _) =>
+              Center(child: Text(l10n.commonErrorWithDetail('$e'))),
           data: (budgets) {
             _initControllersIfNeeded(cats, budgets);
 
@@ -135,7 +140,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              'Gesamt-Budget',
+                              l10n.budgetTotal,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onPrimaryContainer,
                               ),
@@ -178,7 +183,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Budgets speichern'),
+                        : Text(l10n.budgetSaveButton),
                   ),
                 ),
               ],

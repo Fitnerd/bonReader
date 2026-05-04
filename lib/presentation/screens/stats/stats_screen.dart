@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/currency_formatter.dart';
@@ -17,21 +18,35 @@ import '../../providers/expenses_state.dart';
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
 
-  static const _monthShort = <String>[
-    'Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
-  ];
+  /// Kurze Monatsnamen aus den Lokalisierungen.
+  /// Index 0 = Januar.
+  static List<String> _monthShortLabels(AppLocalizations l10n) => <String>[
+        l10n.statsMonthJan,
+        l10n.statsMonthFeb,
+        l10n.statsMonthMar,
+        l10n.statsMonthApr,
+        l10n.statsMonthMay,
+        l10n.statsMonthJun,
+        l10n.statsMonthJul,
+        l10n.statsMonthAug,
+        l10n.statsMonthSep,
+        l10n.statsMonthOct,
+        l10n.statsMonthNov,
+        l10n.statsMonthDec,
+      ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final monthShort = _monthShortLabels(l10n);
     final asyncCats = ref.watch(categoriesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Statistik')),
+      appBar: AppBar(title: Text(l10n.statsTitle)),
       body: asyncCats.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
+        error: (e, _) => Center(child: Text(l10n.commonErrorWithDetail('$e'))),
         data: (categories) {
           final byId = <String, Category>{
             for (final c in categories) c.id: c,
@@ -45,24 +60,26 @@ class StatsScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: <Widget>[
-              _PeriodOverPeriodCard(mom: mom, dailyAvgCents: dailyAvg, theme: theme),
+              _PeriodOverPeriodCard(
+                  mom: mom, dailyAvgCents: dailyAvg, theme: theme),
               const SizedBox(height: 16),
-              _SectionHeader(label: 'Verlauf der letzten 12 Monate', theme: theme),
+              _SectionHeader(label: l10n.statsTrendTitle, theme: theme),
               SizedBox(
                 height: 220,
                 child: _TrendLineChart(
                   trend: trend,
                   theme: theme,
-                  monthShort: _monthShort,
+                  monthShort: monthShort,
+                  emptyLabel: l10n.statsNoData,
                 ),
               ),
               const SizedBox(height: 24),
               _SectionHeader(
-                label: 'Top-Kategorien',
+                label: l10n.statsTopCategoriesTitle,
                 theme: theme,
               ),
               if (top.isEmpty || spent == 0)
-                _empty(theme, 'Noch keine Ausgaben im gewaehlten Zeitraum.')
+                _empty(theme, l10n.statsNoDataInRange)
               else
                 SizedBox(
                   height: 240,
@@ -71,6 +88,7 @@ class StatsScreen extends ConsumerWidget {
                     byId: byId,
                     totalCents: spent,
                     theme: theme,
+                    restLabel: l10n.statsRest,
                   ),
                 ),
               if (top.isNotEmpty && spent != 0) ...<Widget>[
@@ -84,7 +102,7 @@ class StatsScreen extends ConsumerWidget {
               ],
               const SizedBox(height: 24),
               _SectionHeader(
-                label: 'Kategorie vs. Budget',
+                label: l10n.statsCategoryVsBudgetTitle,
                 theme: theme,
               ),
               _CategoryVsBudget(theme: theme),
@@ -139,6 +157,7 @@ class _PeriodOverPeriodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final pct = mom.diffPercent;
     final isUp = mom.diffCents > 0;
     final indicatorColor = mom.diffCents == 0
@@ -156,7 +175,7 @@ class _PeriodOverPeriodCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Aktueller Zeitraum',
+                    l10n.statsCurrentPeriod,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -184,7 +203,8 @@ class _PeriodOverPeriodCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           pct == null
-                              ? CurrencyFormatter.formatCents(mom.diffCents.abs())
+                              ? CurrencyFormatter.formatCents(
+                                  mom.diffCents.abs())
                               : '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)} %  '
                                   '(${CurrencyFormatter.formatCents(mom.diffCents.abs())})',
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -196,7 +216,9 @@ class _PeriodOverPeriodCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Vorperiode: ${CurrencyFormatter.formatCents(mom.previousCents)}',
+                    l10n.statsPreviousPeriod(
+                      CurrencyFormatter.formatCents(mom.previousCents),
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -214,7 +236,7 @@ class _PeriodOverPeriodCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Tagesdurchschnitt',
+                    l10n.statsDailyAverageTitle,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -228,7 +250,7 @@ class _PeriodOverPeriodCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'pro Tag',
+                    l10n.statsDailyAverageSubtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -248,18 +270,20 @@ class _TrendLineChart extends StatelessWidget {
     required this.trend,
     required this.theme,
     required this.monthShort,
+    required this.emptyLabel,
   });
 
   final List<MonthlyTotal> trend;
   final ThemeData theme;
   final List<String> monthShort;
+  final String emptyLabel;
 
   @override
   Widget build(BuildContext context) {
     if (trend.isEmpty) {
       return Center(
         child: Text(
-          'Noch keine Daten.',
+          emptyLabel,
           style: theme.textTheme.bodySmall,
         ),
       );
@@ -388,12 +412,14 @@ class _CategoryDonut extends StatelessWidget {
     required this.byId,
     required this.totalCents,
     required this.theme,
+    required this.restLabel,
   });
 
   final List<CategorySpend> top;
   final Map<String, Category> byId;
   final int totalCents;
   final ThemeData theme;
+  final String restLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -421,7 +447,7 @@ class _CategoryDonut extends StatelessWidget {
                   .fold<int>(0, (s, c) => s + c.totalCents)
                   .toDouble(),
               color: theme.colorScheme.outline,
-              title: 'Rest',
+              title: restLabel,
               radius: 50,
               titleStyle: theme.textTheme.labelSmall?.copyWith(
                 color: Colors.white,
@@ -447,6 +473,7 @@ class _CategoryLegendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final pct = totalCents == 0 ? 0 : (cents * 100 / totalCents).round();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -462,7 +489,7 @@ class _CategoryLegendRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              category?.name ?? 'Unbekannt',
+              category?.name ?? l10n.statsUnknown,
               style: theme.textTheme.bodyMedium,
             ),
           ),
@@ -489,6 +516,7 @@ class _CategoryVsBudget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final cats = ref.watch(categoriesProvider).valueOrNull ?? const <Category>[];
     final byCat = ref.watch(spentByCategoryInSelectedRangeProvider);
     final visible = cats.where((c) => !c.isHidden).toList();
@@ -496,7 +524,7 @@ class _CategoryVsBudget extends ConsumerWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(
-          'Keine sichtbaren Kategorien.',
+          l10n.statsNoVisibleCategories,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -540,6 +568,7 @@ class _CatBudgetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final hasBudget = budgetCents > 0;
     final ratio = hasBudget ? (spentCents / budgetCents).clamp(0.0, 1.5) : 0.0;
     final overspent = ratio > 1.0;
@@ -580,6 +609,10 @@ class _CatBudgetRow extends StatelessWidget {
               minHeight: 6,
               backgroundColor: theme.colorScheme.surfaceContainerHigh,
               valueColor: AlwaysStoppedAnimation<Color>(color),
+              semanticsLabel: l10n.statsCategoryUsageLabel,
+              semanticsValue: hasBudget
+                  ? l10n.dashboardPercentSpoken((ratio * 100).round())
+                  : null,
             ),
           ),
         ],

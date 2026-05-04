@@ -11,7 +11,7 @@ import 'migrations.dart';
 // hier sofort an und nicht erst zur Laufzeit auf Geraeten.
 const _kDbVersionMatchesMigrations =
     AppConstants.databaseVersion == _migrationsLatestVersionAtCompile;
-const _migrationsLatestVersionAtCompile = 3;
+const _migrationsLatestVersionAtCompile = 4;
 // ignore: unused_element
 void _assertDbVersionInSync() {
   assert(

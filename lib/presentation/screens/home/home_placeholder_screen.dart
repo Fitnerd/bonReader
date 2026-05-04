@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -20,6 +21,7 @@ class HomePlaceholderScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final totalBudget = ref.watch(totalBudgetCentsProvider);
     final spent = ref.watch(totalSpentInSelectedRangeProvider);
     final remaining = totalBudget - spent;
@@ -29,7 +31,7 @@ class HomePlaceholderScreen extends ConsumerWidget {
         title: const Text(AppConstants.appName),
         actions: <Widget>[
           IconButton(
-            tooltip: 'Abmelden',
+            tooltip: l10n.actionLogout,
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => ref.read(authStateProvider.notifier).logout(),
           ),
@@ -48,8 +50,8 @@ class HomePlaceholderScreen extends ConsumerWidget {
                   children: <Widget>[
                     Text(
                       totalBudget == 0
-                          ? 'Noch kein Budget gesetzt'
-                          : 'Restbudget diesen Monat',
+                          ? l10n.homeNoBudgetSet
+                          : l10n.homeRemainingThisMonth,
                       style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
@@ -67,8 +69,10 @@ class HomePlaceholderScreen extends ConsumerWidget {
                     if (totalBudget > 0) ...<Widget>[
                       const SizedBox(height: 4),
                       Text(
-                        'Ausgegeben: ${CurrencyFormatter.formatCents(spent)} '
-                        'von ${CurrencyFormatter.formatCents(totalBudget)}',
+                        l10n.homeSpentOfTotal(
+                          CurrencyFormatter.formatCents(spent),
+                          CurrencyFormatter.formatCents(totalBudget),
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -81,8 +85,8 @@ class HomePlaceholderScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _NavTile(
               icon: Icons.qr_code_scanner_rounded,
-              title: 'Bon scannen',
-              subtitle: 'Foto + OCR, dann pruefen & speichern',
+              title: l10n.actionScanReceipt,
+              subtitle: l10n.homeScanReceiptSubtitle,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => const ReceiptScanScreen(),
@@ -91,8 +95,8 @@ class HomePlaceholderScreen extends ConsumerWidget {
             ),
             _NavTile(
               icon: Icons.receipt_long_rounded,
-              title: 'Ausgaben',
-              subtitle: 'Erfassen, einsehen, bearbeiten',
+              title: l10n.actionExpenses,
+              subtitle: l10n.homeExpensesSubtitle,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => const ExpensesListScreen(),
@@ -101,8 +105,8 @@ class HomePlaceholderScreen extends ConsumerWidget {
             ),
             _NavTile(
               icon: Icons.account_balance_wallet_rounded,
-              title: 'Budgets',
-              subtitle: 'Monatsbudget pro Kategorie setzen',
+              title: l10n.actionBudgets,
+              subtitle: l10n.homeBudgetsSubtitle,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => const BudgetScreen(),
@@ -111,8 +115,8 @@ class HomePlaceholderScreen extends ConsumerWidget {
             ),
             _NavTile(
               icon: Icons.category_rounded,
-              title: 'Kategorien',
-              subtitle: 'Eigene Kategorien anlegen, ein-/ausblenden',
+              title: l10n.actionCategories,
+              subtitle: l10n.homeCategoriesSubtitle,
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => const CategoriesScreen(),
@@ -131,6 +135,7 @@ class _AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Drawer(
       child: SafeArea(
         child: ListView(
@@ -145,7 +150,7 @@ class _AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.qr_code_scanner_rounded),
-              title: const Text('Bon scannen'),
+              title: Text(l10n.actionScanReceipt),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -155,7 +160,7 @@ class _AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.receipt_long_rounded),
-              title: const Text('Ausgaben'),
+              title: Text(l10n.actionExpenses),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -165,7 +170,7 @@ class _AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.account_balance_wallet_rounded),
-              title: const Text('Budgets'),
+              title: Text(l10n.actionBudgets),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -175,7 +180,7 @@ class _AppDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.category_rounded),
-              title: const Text('Kategorien'),
+              title: Text(l10n.actionCategories),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(

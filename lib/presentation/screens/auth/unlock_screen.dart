@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -20,7 +21,6 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
   @override
   void initState() {
     super.initState();
-    // Biometrie-Prompt direkt nach dem Aufbau ausloesen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_autoTriggered) {
         _autoTriggered = true;
@@ -34,26 +34,23 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
   }
 
   Future<void> _confirmReset() async {
+    final l10n = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Wirklich zuruecksetzen?'),
-        content: const Text(
-          'Alle Bons, Budgets und Kategorien werden unwiederbringlich '
-          'geloescht. Danach steht die App wieder am Anfang. '
-          'Diese Aktion kann nicht rueckgaengig gemacht werden.',
-        ),
+        title: Text(l10n.resetAccountConfirmTitle),
+        content: Text(l10n.resetAccountConfirmBody),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Abbrechen'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Loeschen'),
+            child: Text(l10n.resetAccountConfirmAction),
           ),
         ],
       ),
@@ -66,6 +63,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final auth = ref.watch(authStateProvider);
     final isWorking = auth.value?.status == AuthStatus.unlocking;
     final error = auth.value?.errorMessage;
@@ -93,7 +91,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tippe auf "Entsperren", um deine Daten freizugeben.',
+                l10n.unlockHint,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -117,13 +115,13 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Entsperren'),
+                    : Text(l10n.unlockButton),
               ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: isWorking ? null : _confirmReset,
                 child: Text(
-                  'Account zuruecksetzen',
+                  l10n.resetAccountAction,
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),

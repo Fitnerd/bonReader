@@ -19,6 +19,7 @@ class Migrations {
     _v1,
     _v2,
     _v3,
+    _v4,
   ];
 
   static int get latestVersion => _all.length;
@@ -105,7 +106,7 @@ class Migrations {
         ${ExpenseItemCols.expenseId} TEXT NOT NULL
           REFERENCES ${DbTables.expenses}(${ExpenseCols.id}) ON DELETE CASCADE,
         ${ExpenseItemCols.name} TEXT NOT NULL,
-        ${ExpenseItemCols.quantity} REAL NOT NULL DEFAULT 1,
+        quantity REAL NOT NULL DEFAULT 1,
         ${ExpenseItemCols.unitPriceCents} INTEGER NOT NULL DEFAULT 0,
         ${ExpenseItemCols.totalCents} INTEGER NOT NULL CHECK (${ExpenseItemCols.totalCents} >= 0)
       );
@@ -137,14 +138,15 @@ class Migrations {
   // anlegen und Daten migrieren.
   // ----------------------------------------------------------------
   static Future<void> _v2(DatabaseExecutor db) async {
-    // 1. Neue Tabelle ohne CHECK-Constraint anlegen.
+    // 1. Neue Tabelle ohne CHECK-Constraint anlegen. quantity bleibt
+    //    in v2 noch REAL — die Umstellung auf INTEGER passiert in v4.
     await db.execute('''
       CREATE TABLE IF NOT EXISTS ${DbTables.expenseItems}_new (
         ${ExpenseItemCols.id} TEXT PRIMARY KEY,
         ${ExpenseItemCols.expenseId} TEXT NOT NULL
           REFERENCES ${DbTables.expenses}(${ExpenseCols.id}) ON DELETE CASCADE,
         ${ExpenseItemCols.name} TEXT NOT NULL,
-        ${ExpenseItemCols.quantity} REAL NOT NULL DEFAULT 1,
+        quantity REAL NOT NULL DEFAULT 1,
         ${ExpenseItemCols.unitPriceCents} INTEGER NOT NULL DEFAULT 0,
         ${ExpenseItemCols.totalCents} INTEGER NOT NULL
       );
@@ -222,6 +224,62 @@ class Migrations {
     await db.execute('''
       ALTER TABLE ${DbTables.auth}_new
       RENAME TO ${DbTables.auth};
+    ''');
+  }
+
+  // ----------------------------------------------------------------
+  // Version 4: expense_items.quantity REAL → quantity_milli INTEGER.
+  //
+  // Hintergrund: REAL hat IEEE-754-Rundungsfehler (z. B. 0.1 + 0.2).
+  // Wir multiplizieren beim Migrieren mit 1000 und runden, dann
+  // arbeiten wir nur noch mit Integern (1500 = 1,5 Stueck).
+  //
+  // Wieder Recreate-Pattern weil SQLite kein DROP COLUMN / TYPE-Wechsel
+  // erlaubt.
+  // ----------------------------------------------------------------
+  static Future<void> _v4(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbTables.expenseItems}_new (
+        ${ExpenseItemCols.id} TEXT PRIMARY KEY,
+        ${ExpenseItemCols.expenseId} TEXT NOT NULL
+          REFERENCES ${DbTables.expenses}(${ExpenseCols.id}) ON DELETE CASCADE,
+        ${ExpenseItemCols.name} TEXT NOT NULL,
+        ${ExpenseItemCols.quantityMilli} INTEGER NOT NULL DEFAULT 1000,
+        ${ExpenseItemCols.unitPriceCents} INTEGER NOT NULL DEFAULT 0,
+        ${ExpenseItemCols.totalCents} INTEGER NOT NULL
+      );
+    ''');
+
+    // Daten ruebertragen, quantity * 1000 + Rundung.
+    // SQLite hat ROUND(x), das genuegt fuer den Round-Trip.
+    await db.execute('''
+      INSERT INTO ${DbTables.expenseItems}_new (
+        ${ExpenseItemCols.id},
+        ${ExpenseItemCols.expenseId},
+        ${ExpenseItemCols.name},
+        ${ExpenseItemCols.quantityMilli},
+        ${ExpenseItemCols.unitPriceCents},
+        ${ExpenseItemCols.totalCents}
+      )
+      SELECT
+        ${ExpenseItemCols.id},
+        ${ExpenseItemCols.expenseId},
+        ${ExpenseItemCols.name},
+        CAST(ROUND(quantity * 1000) AS INTEGER),
+        ${ExpenseItemCols.unitPriceCents},
+        ${ExpenseItemCols.totalCents}
+      FROM ${DbTables.expenseItems};
+    ''');
+
+    await db.execute('DROP INDEX IF EXISTS idx_expense_items_expense;');
+    await db.execute('DROP TABLE IF EXISTS ${DbTables.expenseItems};');
+    await db.execute('''
+      ALTER TABLE ${DbTables.expenseItems}_new
+      RENAME TO ${DbTables.expenseItems};
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_expense_items_expense
+      ON ${DbTables.expenseItems}(${ExpenseItemCols.expenseId});
     ''');
   }
 }

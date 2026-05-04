@@ -210,7 +210,7 @@ class ReceiptParser {
       // Name folgt auf naechster Zeile).
       final qMatch = _quantityLine.firstMatch(raw);
       if (qMatch != null) {
-        final qty = _parseQuantity(qMatch.group(1)!);
+        final qtyMilli = _parseQuantityMilli(qMatch.group(1)!);
         final unit = _priceToCents(qMatch.group(2)!);
 
         // Hat die Zeile nach dem Mengen-Match noch einen separaten
@@ -223,7 +223,7 @@ class ReceiptParser {
           // aus der naechsten textuellen Zeile gefuellt (siehe unten).
           items.add(ExpenseItemDraft(
             name: '',
-            quantity: qty,
+            quantityMilli: qtyMilli,
             unitPriceCents: unit,
             totalCents: tailPrice,
           ));
@@ -236,7 +236,7 @@ class ReceiptParser {
           final last = items.last;
           items[items.length - 1] = ExpenseItemDraft(
             name: last.name,
-            quantity: qty,
+            quantityMilli: qtyMilli,
             unitPriceCents: unit,
             totalCents: last.totalCents,
           );
@@ -254,7 +254,7 @@ class ReceiptParser {
           if (name.isEmpty) name = signed < 0 ? 'Leergut' : 'Pfand';
           items.add(ExpenseItemDraft(
             name: name,
-            quantity: 1,
+            quantityMilli: AppConstants.quantityMilliPerUnit,
             unitPriceCents: signed,
             totalCents: signed,
           ));
@@ -287,7 +287,7 @@ class ReceiptParser {
             final last = items.last;
             items[items.length - 1] = ExpenseItemDraft(
               name: trimmed,
-              quantity: last.quantity,
+              quantityMilli: last.quantityMilli,
               unitPriceCents: last.unitPriceCents,
               totalCents: last.totalCents,
             );
@@ -316,7 +316,7 @@ class ReceiptParser {
 
       items.add(ExpenseItemDraft(
         name: name,
-        quantity: 1,
+        quantityMilli: AppConstants.quantityMilliPerUnit,
         unitPriceCents: cents,
         totalCents: cents,
       ));
@@ -372,8 +372,10 @@ class ReceiptParser {
 
   /// Parst die Mengen-Angabe einer Mengenzeile. Akzeptiert ganze Zahlen
   /// (`2`) und Dezimal-Mengen (`1,558` oder `1.558` fuer kg-Ware).
-  static double _parseQuantity(String raw) {
+  /// Liefert Milli-Stueckzahl (1500 = 1,5).
+  static int _parseQuantityMilli(String raw) {
     final s = raw.replaceAll(' ', '').replaceAll(',', '.');
-    return double.tryParse(s) ?? 1.0;
+    final v = double.tryParse(s) ?? 1.0;
+    return (v * AppConstants.quantityMilliPerUnit).round();
   }
 }

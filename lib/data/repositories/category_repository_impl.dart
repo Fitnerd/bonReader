@@ -142,17 +142,35 @@ class CategoryRepositoryImpl implements CategoryRepository {
   // ────────────────────────────────────────────────────────────────
   // Mapping
   // ────────────────────────────────────────────────────────────────
-  Category _fromRow(Map<String, Object?> row) => Category(
-        id: row[CategoryCols.id]! as String,
-        name: row[CategoryCols.name]! as String,
-        colorValue: row[CategoryCols.colorValue]! as int,
-        iconCodePoint: row[CategoryCols.iconCodePoint]! as int,
-        isDefault: (row[CategoryCols.isDefault]! as int) == 1,
-        isHidden: (row[CategoryCols.isHidden]! as int) == 1,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(
-          row[CategoryCols.createdAt]! as int,
-        ),
+  Category _fromRow(Map<String, Object?> row) {
+    final id = row[CategoryCols.id];
+    final name = row[CategoryCols.name];
+    final color = row[CategoryCols.colorValue];
+    final icon = row[CategoryCols.iconCodePoint];
+    final isDefault = row[CategoryCols.isDefault];
+    final isHidden = row[CategoryCols.isHidden];
+    final createdAt = row[CategoryCols.createdAt];
+    if (id is! String ||
+        name is! String ||
+        color is! int ||
+        icon is! int ||
+        isDefault is! int ||
+        isHidden is! int ||
+        createdAt is! int) {
+      throw StateError(
+        'Category-Zeile hat unerwartete Spaltentypen: $row',
       );
+    }
+    return Category(
+      id: id,
+      name: name,
+      colorValue: color,
+      iconCodePoint: icon,
+      isDefault: isDefault == 1,
+      isHidden: isHidden == 1,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(createdAt),
+    );
+  }
 
   Map<String, Object?> _toRow(Category c) => <String, Object?>{
         CategoryCols.id: c.id,

@@ -64,7 +64,13 @@ class AppConstants {
   /// V1: initiales Schema.
   /// V2: expense_items.total_cents darf negativ sein (Pfand/Leergut).
   /// V3: Auth-Tabelle ohne Passwort-Hash (Biometrie-Only).
-  static const int databaseVersion = 3;
+  /// V4: expense_items.quantity REAL → quantity_milli INTEGER
+  ///     (IEEE-754-Rundungsfehler eliminieren).
+  static const int databaseVersion = 4;
+
+  /// Aufloesung des Quantity-Felds. 1000 = "ein Stueck".
+  /// 1500 entspricht 1,5 Stueck / 1,5 kg / 1,5 l.
+  static const int quantityMilliPerUnit = 1000;
 
   // ──────────────────────────────────────────────────────────────────
   // UI-Schwellenwerte (vorher als Magic Numbers ueber den Code verteilt)

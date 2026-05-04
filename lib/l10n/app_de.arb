@@ -1,0 +1,307 @@
+{
+  "@@locale": "de",
+  "appName": "BonBudget",
+
+  "splashLoading": "App wird geladen",
+
+  "setupTitleWelcome": "Willkommen bei {appName}",
+  "@setupTitleWelcome": {
+    "placeholders": {
+      "appName": {"type": "String"}
+    }
+  },
+  "setupExplanation": "Deine Daten werden lokal verschluesselt gespeichert. Zugriff bekommst du ueber Biometrie (Fingerabdruck / Gesicht) oder die Geraete-PIN.",
+  "setupNoRecoveryWarning": "Wichtig: Es gibt keinen Cloud-Backup und kein Recovery. Bei Geraeteverlust sind alle Bons, Budgets und Kategorien unwiederbringlich weg.",
+  "setupNoBiometricsHint": "Auf diesem Geraet ist keine Biometrie eingerichtet. Bitte zuerst in den System-Einstellungen einen Fingerabdruck oder Face-ID hinterlegen und die App neu starten.",
+  "setupButton": "Mit Biometrie einrichten",
+
+  "unlockHint": "Tippe auf \"Entsperren\", um deine Daten freizugeben.",
+  "unlockButton": "Entsperren",
+  "resetAccountAction": "Account zuruecksetzen",
+  "resetAccountConfirmTitle": "Wirklich zuruecksetzen?",
+  "resetAccountConfirmBody": "Alle Bons, Budgets und Kategorien werden unwiederbringlich geloescht. Danach steht die App wieder am Anfang. Diese Aktion kann nicht rueckgaengig gemacht werden.",
+  "resetAccountConfirmAction": "Loeschen",
+  "cancel": "Abbrechen",
+
+  "legacyMigrationTitle": "{appName}: Anmeldung umstellen",
+  "@legacyMigrationTitle": {
+    "placeholders": {
+      "appName": {"type": "String"}
+    }
+  },
+  "legacyMigrationExplanation": "Wir stellen die Anmeldung auf Biometrie um. Dafuer brauchen wir einmal dein altes App-Passwort.",
+  "legacyMigrationOldPasswordLabel": "Bisheriges Passwort",
+  "legacyMigrationButton": "Auf Biometrie umstellen",
+  "legacyMigrationEmptyError": "Bitte eingeben.",
+
+  "biometricCancelled": "Vorgang abgebrochen.",
+  "biometricNotAvailable": "Biometrie nicht verfuegbar: {reason}",
+  "@biometricNotAvailable": {
+    "placeholders": {
+      "reason": {"type": "String"}
+    }
+  },
+  "biometricLockedOutPermanent": "Biometrie ist dauerhaft gesperrt. Bitte ueber die Geraete-Einstellungen freischalten.",
+  "biometricLockedOutTemporary": "Biometrie ist temporaer gesperrt. Bitte spaeter erneut versuchen.",
+  "biometricGenericFailure": "Biometrie-Fehler.",
+  "setupFailedGeneric": "Einrichtung fehlgeschlagen.",
+  "unlockFailedGeneric": "Entsperren fehlgeschlagen.",
+  "legacyMigrationWrongPassword": "Passwort falsch.",
+  "legacyMigrationFailed": "Migration fehlgeschlagen.",
+  "legacyMigrationNoBiometricsSetUp": "Auf diesem Geraet ist keine Biometrie eingerichtet. Bitte zuerst einrichten.",
+
+  "actionScanReceipt": "Bon scannen",
+  "actionExpenses": "Ausgaben",
+  "actionBudgets": "Budgets",
+  "actionCategories": "Kategorien",
+  "actionSettings": "Einstellungen",
+  "actionStats": "Statistik",
+  "actionLogout": "Abmelden",
+  "actionPickRange": "Zeitraum wählen",
+
+  "commonNew": "Neu",
+  "commonSave": "Speichern",
+  "commonCreate": "Anlegen",
+  "commonDelete": "Löschen",
+  "commonRemove": "Entfernen",
+  "commonAdd": "Hinzufügen",
+  "commonEdit": "Bearbeiten",
+  "commonError": "Fehler",
+  "commonErrorWithDetail": "Fehler: {detail}",
+  "@commonErrorWithDetail": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+
+  "expenseFallbackName": "Ausgabe",
+
+  "homeNoBudgetSet": "Noch kein Budget gesetzt",
+  "homeRemainingThisMonth": "Restbudget diesen Monat",
+  "homeSpentOfTotal": "Ausgegeben: {spent} von {total}",
+  "@homeSpentOfTotal": {
+    "placeholders": {
+      "spent": {"type": "String"},
+      "total": {"type": "String"}
+    }
+  },
+  "homeScanReceiptSubtitle": "Foto + OCR, dann prüfen & speichern",
+  "homeExpensesSubtitle": "Erfassen, einsehen, bearbeiten",
+  "homeBudgetsSubtitle": "Monatsbudget pro Kategorie setzen",
+  "homeCategoriesSubtitle": "Eigene Kategorien anlegen, ein-/ausblenden",
+
+  "dashboardEditBudgets": "Budgets bearbeiten",
+  "dashboardNoVisibleCategories": "Keine Kategorien sichtbar.",
+  "dashboardRecentExpensesTitle": "Letzte Ausgaben",
+  "dashboardSeeAll": "Alle ansehen",
+  "dashboardNoExpensesThisMonth": "Noch keine Ausgaben in diesem Monat.",
+  "dashboardNoBudgetSet": "Kein Budget gesetzt",
+  "dashboardRemaining": "verbleibend",
+  "dashboardTipEditBudgets": "Tippe \"Budgets bearbeiten\"",
+  "dashboardSpent": "Ausgegeben: {spent}",
+  "@dashboardSpent": {
+    "placeholders": {
+      "spent": {"type": "String"}
+    }
+  },
+  "dashboardSpentOfTotal": "Ausgegeben: {spent} von {total}",
+  "@dashboardSpentOfTotal": {
+    "placeholders": {
+      "spent": {"type": "String"},
+      "total": {"type": "String"}
+    }
+  },
+  "dashboardBudgetUsageLabel": "Budget-Auslastung",
+  "dashboardPercentSpoken": "{pct} Prozent",
+  "@dashboardPercentSpoken": {
+    "placeholders": {
+      "pct": {"type": "int"}
+    }
+  },
+
+  "settingsTitle": "Einstellungen",
+  "settingsSecuritySection": "Sicherheit",
+  "settingsAutoLogoutTitle": "Auto-Logout",
+  "settingsAutoLogoutLoading": "Lade…",
+  "settingsAutoLogoutLoadError": "Einstellung konnte nicht geladen werden.",
+  "settingsAutoLogoutValue": "{minutes, plural, =1{1 Minute} other{{minutes} Minuten}}",
+  "@settingsAutoLogoutValue": {
+    "placeholders": {
+      "minutes": {"type": "int", "format": "decimalPattern"}
+    }
+  },
+  "settingsAutoLogoutSliderLabel": "{minutes} Min",
+  "@settingsAutoLogoutSliderLabel": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "settingsAutoLogoutDescription": "Nach so vielen Minuten ohne Bedienung wirst du abgemeldet. Beim Wechsel in den Hintergrund passiert das sofort, unabhängig vom Wert.",
+  "settingsDataSection": "Daten",
+  "settingsDeleteAccountTitle": "Account und alle Daten löschen",
+  "settingsDeleteAccountSubtitle": "Unwiderruflich. Setzt die App auf Werkseinstellungen zurück.",
+  "settingsAboutSection": "Über",
+  "settingsAboutAppTitle": "Über {appName}",
+  "@settingsAboutAppTitle": {
+    "placeholders": {
+      "appName": {"type": "String"}
+    }
+  },
+  "settingsAboutSubtitle": "Lokal, privacy-first, keine Cloud.",
+  "settingsAboutLegalese": "Alle Daten bleiben lokal auf diesem Gerät. AES-256 verschlüsselte Datenbank. Zugriff per Biometrie / Geräte-PIN.",
+  "settingsLicensesTitle": "Open-Source-Lizenzen",
+  "settingsBiometricsTitle": "Biometrie / Geräte-PIN",
+  "settingsBiometricsChecking": "Prüfe…",
+  "settingsBiometricsActive": "Aktiv. Nur Biometrie oder Geräte-PIN gibt Zugriff frei.",
+  "settingsBiometricsNone": "Auf dem Gerät ist keine Biometrie eingerichtet. Bitte System-Einstellungen prüfen.",
+  "settingsResetSnack": "Account und alle Daten gelöscht.",
+  "settingsResetError": "Fehler beim Zurücksetzen.",
+  "settingsResetTitle": "Wirklich alles löschen?",
+  "settingsResetBody": "Account, alle Kategorien, Budgets und Ausgaben werden unwiderruflich entfernt. Es gibt keinen Backup.",
+  "settingsResetConfirmCheck": "Mir ist klar, dass das nicht rückgängig zu machen ist.",
+  "settingsResetConfirmAction": "Endgültig löschen",
+
+  "budgetTitle": "Budgets",
+  "budgetTotal": "Gesamt-Budget",
+  "budgetSaveDialogTitle": "Budgets speichern?",
+  "budgetSaveDialogBody": "Neues Gesamt-Budget: {amount}",
+  "@budgetSaveDialogBody": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "budgetSaveButton": "Budgets speichern",
+  "budgetSavedSnack": "Budgets gespeichert.",
+
+  "categoriesTitle": "Kategorien",
+  "categoriesEmpty": "Noch keine Kategorien.",
+  "categoriesBadgeDefault": "Standard",
+  "categoriesBadgeHidden": "Ausgeblendet",
+  "categoriesDeleteTitle": "„{name}\" entfernen?",
+  "@categoriesDeleteTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "categoriesDeleteBodyDefault": "Default-Kategorien werden nur ausgeblendet, damit deine bisherigen Ausgaben weiterhin korrekt zugeordnet sind. Du kannst sie später wieder einblenden.",
+  "categoriesDeleteBodyCustom": "Die Kategorie wird endgültig gelöscht. Bestehende Ausgaben in dieser Kategorie verhindern das Löschen.",
+
+  "categoryEditTitleEdit": "Kategorie bearbeiten",
+  "categoryEditTitleNew": "Neue Kategorie",
+  "categoryEditNameLabel": "Name",
+  "categoryEditNameRequired": "Bitte einen Namen eingeben.",
+  "categoryEditColorLabel": "Farbe",
+  "categoryEditIconLabel": "Icon",
+
+  "statsTitle": "Statistik",
+  "statsTrendTitle": "Verlauf der letzten 12 Monate",
+  "statsTopCategoriesTitle": "Top-Kategorien",
+  "statsCategoryVsBudgetTitle": "Kategorie vs. Budget",
+  "statsCurrentPeriod": "Aktueller Zeitraum",
+  "statsPreviousPeriod": "Vorperiode: {amount}",
+  "@statsPreviousPeriod": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "statsDailyAverageTitle": "Tagesdurchschnitt",
+  "statsDailyAverageSubtitle": "pro Tag",
+  "statsNoDataInRange": "Noch keine Ausgaben im gewählten Zeitraum.",
+  "statsNoData": "Noch keine Daten.",
+  "statsRest": "Rest",
+  "statsUnknown": "Unbekannt",
+  "statsNoVisibleCategories": "Keine sichtbaren Kategorien.",
+  "statsCategoryUsageLabel": "Auslastung Kategorie",
+  "statsMonthJan": "Jan",
+  "statsMonthFeb": "Feb",
+  "statsMonthMar": "Mrz",
+  "statsMonthApr": "Apr",
+  "statsMonthMay": "Mai",
+  "statsMonthJun": "Jun",
+  "statsMonthJul": "Jul",
+  "statsMonthAug": "Aug",
+  "statsMonthSep": "Sep",
+  "statsMonthOct": "Okt",
+  "statsMonthNov": "Nov",
+  "statsMonthDec": "Dez",
+
+  "expensesListTitle": "Ausgaben",
+  "expensesListEmpty": "Noch keine Ausgaben in diesem Monat",
+  "expensesListEmptyHint": "Tippe auf \"Neu\", um eine Ausgabe zu erfassen.",
+  "expensesCount": "{count, plural, =1{1 Ausgabe} other{{count} Ausgaben}}",
+  "@expensesCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "expenseItemsCount": "{count, plural, =1{1 Position} other{{count} Positionen}}",
+  "@expenseItemsCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "expenseDeleteTitle": "Ausgabe löschen?",
+  "expenseDeleteBody": "{name} ({amount}) wird unwiderruflich gelöscht.",
+  "@expenseDeleteBody": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "amount": {"type": "String"}
+    }
+  },
+
+  "expenseFormTitleEdit": "Ausgabe bearbeiten",
+  "expenseFormTitleReview": "Ausgabe prüfen & speichern",
+  "expenseFormTitleNew": "Neue Ausgabe",
+  "expenseFormSelectCategory": "Bitte eine Kategorie wählen.",
+  "expenseFormAmountGreaterZero": "Betrag muss größer 0 sein.",
+  "expenseFormSaveError": "Fehler beim Speichern: {detail}",
+  "@expenseFormSaveError": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "expenseFormNoVisibleCategories": "Keine sichtbaren Kategorien. Bitte erst eine Kategorie anlegen.",
+  "expenseFormModeSection": "Modus",
+  "expenseFormModeWithItems": "Mit Positionen",
+  "expenseFormModeOnlyTotal": "Nur Gesamtbetrag",
+  "expenseFormModeOnlyTotalHint": "Positionen werden nicht gespeichert. Default-Kategorie ist \"Sonstiges\" – du kannst auch eine andere wählen.",
+  "expenseFormGeneralSection": "Allgemein",
+  "expenseFormMerchantLabel": "Händler",
+  "expenseFormMerchantHint": "z. B. Rewe, Aldi",
+  "expenseFormCategoryLabel": "Kategorie",
+  "expenseFormDateLabel": "Datum",
+  "expenseFormAmountSection": "Betrag",
+  "expenseFormItemsSum": "Aus Positionen: {amount}",
+  "@expenseFormItemsSum": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "expenseFormTotalLabel": "Gesamtbetrag",
+  "expenseFormTotalLabelOverridesItems": "Gesamtbetrag (überschreibt Positionen-Summe)",
+  "expenseFormTotalValidation": "Bitte einen Betrag > 0 eingeben",
+  "expenseFormItemsSection": "Positionen (optional)",
+  "expenseFormItemsEmpty": "Keine Positionen erfasst. Wenn du den Bon abfotografierst, füllt der OCR-Parser das automatisch.",
+  "expenseFormItemHint": "Position",
+  "expenseFormItemRemoveTooltip": "Position entfernen",
+  "expenseFormNoteSection": "Notiz (optional)",
+  "expenseFormNoteHint": "z. B. Wocheneinkauf",
+  "expenseFormCreateButton": "Ausgabe anlegen",
+
+  "receiptScanTitle": "Bon scannen",
+  "receiptScanOpeningCamera": "Kamera wird geöffnet…",
+  "receiptScanOpeningGallery": "Galerie wird geöffnet…",
+  "receiptScanReading": "Bon wird gelesen…",
+  "receiptScanLowConfidence": "Erkennung unsicher ({pct} %). Bitte Werte prüfen. Total: {total}",
+  "@receiptScanLowConfidence": {
+    "placeholders": {
+      "pct": {"type": "int"},
+      "total": {"type": "String"}
+    }
+  },
+  "receiptScanFailed": "Bon konnte nicht gelesen werden. Bitte erneut versuchen.",
+  "receiptScanPrivacyTitle": "Privacy first",
+  "receiptScanPrivacyBody": "Das Bild bleibt auf deinem Gerät. Es wird lokal kontrastoptimiert, dann läuft die OCR on-device. Nach der Auswertung wird das Foto sofort gelöscht.",
+  "receiptScanCamera": "Foto aufnehmen",
+  "receiptScanGallery": "Aus Galerie wählen"
+}

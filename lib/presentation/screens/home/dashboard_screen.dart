@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -31,6 +32,7 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final asyncCats = ref.watch(categoriesProvider);
     final asyncExpenses = ref.watch(expensesProvider);
     final selectedRange = ref.watch(selectedDateRangeProvider);
@@ -42,7 +44,7 @@ class DashboardScreen extends ConsumerWidget {
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.bar_chart_rounded),
-            tooltip: 'Statistik',
+            tooltip: l10n.actionStats,
             onPressed: () {
               Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => const StatsScreen(),
@@ -51,12 +53,12 @@ class DashboardScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
-            tooltip: 'Zeitraum waehlen',
+            tooltip: l10n.actionPickRange,
             onPressed: () => _pickRange(context, ref, selectedRange),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Abmelden',
+            tooltip: l10n.actionLogout,
             onPressed: () => ref.read(authStateProvider.notifier).logout(),
           ),
         ],
@@ -69,14 +71,15 @@ class DashboardScreen extends ConsumerWidget {
           ));
         },
         icon: const Icon(Icons.qr_code_scanner_rounded),
-        label: const Text('Bon scannen'),
+        label: Text(l10n.actionScanReceipt),
       ),
       body: asyncCats.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
+        error: (e, _) => Center(child: Text(l10n.commonErrorWithDetail('$e'))),
         data: (categories) => asyncExpenses.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Fehler: $e')),
+          error: (e, _) =>
+              Center(child: Text(l10n.commonErrorWithDetail('$e'))),
           data: (_) {
             final totalBudget = ref.watch(totalBudgetCentsProvider);
             final spent = ref.watch(totalSpentInSelectedRangeProvider);
@@ -94,19 +97,23 @@ class DashboardScreen extends ConsumerWidget {
                   theme: theme,
                 ),
                 const SizedBox(height: 24),
-                _SectionTitle(label: 'Kategorien', theme: theme, action: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => const BudgetScreen(),
-                    ));
-                  },
-                  child: const Text('Budgets bearbeiten'),
-                )),
+                _SectionTitle(
+                  label: l10n.actionCategories,
+                  theme: theme,
+                  action: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => const BudgetScreen(),
+                      ));
+                    },
+                    child: Text(l10n.dashboardEditBudgets),
+                  ),
+                ),
                 if (visible.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
-                      'Keine Kategorien sichtbar.',
+                      l10n.dashboardNoVisibleCategories,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -123,7 +130,7 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                 const SizedBox(height: 24),
                 _SectionTitle(
-                  label: 'Letzte Ausgaben',
+                  label: l10n.dashboardRecentExpensesTitle,
                   theme: theme,
                   action: TextButton(
                     onPressed: () {
@@ -131,14 +138,14 @@ class DashboardScreen extends ConsumerWidget {
                         builder: (_) => const ExpensesListScreen(),
                       ));
                     },
-                    child: const Text('Alle ansehen'),
+                    child: Text(l10n.dashboardSeeAll),
                   ),
                 ),
                 if (monthExpenses.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
-                      'Noch keine Ausgaben in diesem Monat.',
+                      l10n.dashboardNoExpensesThisMonth,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -201,6 +208,7 @@ class _BudgetRingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final remaining = totalBudgetCents - spentCents;
     final hasBudget = totalBudgetCents > 0;
     final ratio = hasBudget
@@ -257,7 +265,7 @@ class _BudgetRingCard extends StatelessWidget {
                   Text(
                     hasBudget
                         ? CurrencyFormatter.formatCents(remaining)
-                        : 'Kein Budget gesetzt',
+                        : l10n.dashboardNoBudgetSet,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: !hasBudget
@@ -269,7 +277,9 @@ class _BudgetRingCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    hasBudget ? 'verbleibend' : 'Tippe "Budgets bearbeiten"',
+                    hasBudget
+                        ? l10n.dashboardRemaining
+                        : l10n.dashboardTipEditBudgets,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -277,15 +287,17 @@ class _BudgetRingCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   if (hasBudget)
                     Text(
-                      'Ausgegeben: '
-                      '${CurrencyFormatter.formatCents(spentCents)} '
-                      'von ${CurrencyFormatter.formatCents(totalBudgetCents)}',
+                      l10n.dashboardSpentOfTotal(
+                        CurrencyFormatter.formatCents(spentCents),
+                        CurrencyFormatter.formatCents(totalBudgetCents),
+                      ),
                       style: theme.textTheme.bodySmall,
                     )
                   else
                     Text(
-                      'Ausgegeben: '
-                      '${CurrencyFormatter.formatCents(spentCents)}',
+                      l10n.dashboardSpent(
+                        CurrencyFormatter.formatCents(spentCents),
+                      ),
                       style: theme.textTheme.bodySmall,
                     ),
                 ],
@@ -361,6 +373,7 @@ class _CategoryStatusTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final hasBudget = budgetCents > 0;
     final ratio = hasBudget ? (spentCents / budgetCents).clamp(0.0, 1.5) : 0.0;
     final overspent = ratio > 1.0;
@@ -421,6 +434,10 @@ class _CategoryStatusTile extends StatelessWidget {
                     minHeight: 6,
                     backgroundColor: theme.colorScheme.surfaceContainerHigh,
                     valueColor: AlwaysStoppedAnimation<Color>(color),
+                    semanticsLabel: l10n.dashboardBudgetUsageLabel,
+                    semanticsValue: hasBudget
+                        ? l10n.dashboardPercentSpoken((ratio * 100).round())
+                        : null,
                   ),
                 ),
               ],
@@ -446,6 +463,7 @@ class _RecentExpenseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final cat = category;
     final dateLabel =
         '${expense.occurredAt.day.toString().padLeft(2, '0')}.${expense.occurredAt.month.toString().padLeft(2, '0')}.';
@@ -466,7 +484,9 @@ class _RecentExpenseTile extends StatelessWidget {
         ),
       ),
       title: Text(
-        expense.merchant.isEmpty ? (cat?.name ?? 'Ausgabe') : expense.merchant,
+        expense.merchant.isEmpty
+            ? (cat?.name ?? l10n.expenseFallbackName)
+            : expense.merchant,
       ),
       subtitle: Text('$dateLabel${cat == null ? '' : ' · ${cat.name}'}'),
       trailing: Text(
@@ -517,6 +537,7 @@ class _DashboardDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Drawer(
       child: SafeArea(
         child: ListView(
@@ -531,7 +552,7 @@ class _DashboardDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.qr_code_scanner_rounded),
-              title: const Text('Bon scannen'),
+              title: Text(l10n.actionScanReceipt),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -541,7 +562,7 @@ class _DashboardDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.receipt_long_rounded),
-              title: const Text('Ausgaben'),
+              title: Text(l10n.actionExpenses),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -551,7 +572,7 @@ class _DashboardDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.account_balance_wallet_rounded),
-              title: const Text('Budgets'),
+              title: Text(l10n.actionBudgets),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -561,7 +582,7 @@ class _DashboardDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.bar_chart_rounded),
-              title: const Text('Statistik'),
+              title: Text(l10n.actionStats),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -571,7 +592,7 @@ class _DashboardDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.category_rounded),
-              title: const Text('Kategorien'),
+              title: Text(l10n.actionCategories),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(
@@ -582,7 +603,7 @@ class _DashboardDrawer extends StatelessWidget {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.settings_rounded),
-              title: const Text('Einstellungen'),
+              title: Text(l10n.actionSettings),
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(MaterialPageRoute<void>(

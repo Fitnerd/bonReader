@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import '../../../core/constants/app_constants.dart';
 
@@ -30,10 +31,15 @@ class SplashScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            const SizedBox(
+            SizedBox(
               width: 24,
               height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                semanticsLabel:
+                    AppLocalizations.of(context)?.splashLoading ??
+                        'Loading',
+              ),
             ),
           ],
         ),

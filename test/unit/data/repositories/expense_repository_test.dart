@@ -128,6 +128,78 @@ void main() {
       );
     });
 
+    test('getPage liefert seitenweise (DESC nach Datum)', () async {
+      // 5 Ausgaben anlegen, an verschiedenen Tagen
+      for (var i = 1; i <= 5; i++) {
+        await repo.create(ExpenseDraft(
+          categoryId: catId,
+          totalCents: i * 100,
+          merchant: 'M$i',
+          occurredAt: DateTime(2026, 5, i),
+        ));
+      }
+      expect(await repo.getCount(), 5);
+
+      final page1 = await repo.getPage(offset: 0, limit: 2);
+      expect(page1, hasLength(2));
+      // Neueste zuerst → 5. Mai (500), 4. Mai (400)
+      expect(page1[0].totalCents, 500);
+      expect(page1[1].totalCents, 400);
+
+      final page2 = await repo.getPage(offset: 2, limit: 2);
+      expect(page2, hasLength(2));
+      expect(page2[0].totalCents, 300);
+      expect(page2[1].totalCents, 200);
+
+      final page3 = await repo.getPage(offset: 4, limit: 2);
+      expect(page3, hasLength(1));
+      expect(page3[0].totalCents, 100);
+    });
+
+    test('getPage mit ungueltigen Werten liefert leer', () async {
+      expect(await repo.getPage(offset: -1, limit: 10), isEmpty);
+      expect(await repo.getPage(offset: 0, limit: 0), isEmpty);
+      expect(await repo.getPage(offset: 0, limit: -5), isEmpty);
+    });
+
+    test('getPageInRange + getCountInRange beachten Datumsfilter',
+        () async {
+      // April + Mai
+      await repo.create(ExpenseDraft(
+        categoryId: catId,
+        totalCents: 100,
+        merchant: '',
+        occurredAt: DateTime(2026, 4, 15),
+      ));
+      await repo.create(ExpenseDraft(
+        categoryId: catId,
+        totalCents: 200,
+        merchant: '',
+        occurredAt: DateTime(2026, 5, 1),
+      ));
+      await repo.create(ExpenseDraft(
+        categoryId: catId,
+        totalCents: 300,
+        merchant: '',
+        occurredAt: DateTime(2026, 5, 15),
+      ));
+
+      final from = DateTime(2026, 5, 1);
+      final to = DateTime(2026, 5, 31, 23, 59, 59);
+
+      expect(await repo.getCountInRange(from, to), 2);
+
+      final page = await repo.getPageInRange(
+        from: from,
+        to: to,
+        offset: 0,
+        limit: 10,
+      );
+      expect(page, hasLength(2));
+      expect(page[0].totalCents, 300); // 15. Mai zuerst
+      expect(page[1].totalCents, 200);
+    });
+
     test('update ersetzt Items komplett', () async {
       final e = await repo.create(ExpenseDraft(
         categoryId: catId,

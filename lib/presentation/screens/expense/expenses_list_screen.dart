@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/currency_formatter.dart';
@@ -17,6 +18,7 @@ class ExpensesListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final asyncExpenses = ref.watch(expensesProvider);
     final asyncCats = ref.watch(categoriesProvider);
     final monthExpenses = ref.watch(expensesInSelectedRangeProvider);
@@ -26,11 +28,11 @@ class ExpensesListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ausgaben'),
+        title: Text(l10n.expensesListTitle),
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.qr_code_scanner_rounded),
-            tooltip: 'Bon scannen',
+            tooltip: l10n.actionScanReceipt,
             onPressed: () {
               Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => const ReceiptScanScreen(),
@@ -39,7 +41,7 @@ class ExpensesListScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
-            tooltip: 'Zeitraum waehlen',
+            tooltip: l10n.actionPickRange,
             onPressed: () => _pickRange(context, ref, selectedRange),
           ),
         ],
@@ -51,14 +53,15 @@ class ExpensesListScreen extends ConsumerWidget {
           ));
         },
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Neu'),
+        label: Text(l10n.commonNew),
       ),
       body: asyncExpenses.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Fehler: $e')),
+        error: (e, _) => Center(child: Text(l10n.commonErrorWithDetail('$e'))),
         data: (_) => asyncCats.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Fehler: $e')),
+          error: (e, _) =>
+              Center(child: Text(l10n.commonErrorWithDetail('$e'))),
           data: (categories) {
             final byCatId = <String, Category>{
               for (final c in categories) c.id: c,
@@ -119,23 +122,25 @@ class ExpensesListScreen extends ConsumerWidget {
     WidgetRef ref,
     Expense e,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext ctx) => AlertDialog(
-        title: const Text('Ausgabe loeschen?'),
+        title: Text(l10n.expenseDeleteTitle),
         content: Text(
-          '${e.merchant.isEmpty ? 'Ausgabe' : e.merchant} '
-          '(${CurrencyFormatter.formatCents(e.totalCents)}) wird unwiderruflich '
-          'geloescht.',
+          l10n.expenseDeleteBody(
+            e.merchant.isEmpty ? l10n.expenseFallbackName : e.merchant,
+            CurrencyFormatter.formatCents(e.totalCents),
+          ),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Abbrechen'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Loeschen'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -161,6 +166,7 @@ class _RangeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -183,7 +189,7 @@ class _RangeHeader extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '$count ${count == 1 ? 'Ausgabe' : 'Ausgaben'}',
+            l10n.expensesCount(count),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -210,6 +216,7 @@ class _ExpenseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final cat = category;
     final dateLabel =
         '${expense.occurredAt.day.toString().padLeft(2, '0')}.${expense.occurredAt.month.toString().padLeft(2, '0')}.';
@@ -242,13 +249,15 @@ class _ExpenseTile extends StatelessWidget {
           ),
         ),
         title: Text(
-          expense.merchant.isEmpty ? (cat?.name ?? 'Ausgabe') : expense.merchant,
+          expense.merchant.isEmpty
+              ? (cat?.name ?? l10n.expenseFallbackName)
+              : expense.merchant,
         ),
         subtitle: Text(<String>[
           dateLabel,
           if (cat != null) cat.name,
           if (expense.items.isNotEmpty)
-            '${expense.items.length} Position${expense.items.length == 1 ? '' : 'en'}',
+            l10n.expenseItemsCount(expense.items.length),
         ].join(' · ')),
         trailing: Text(
           CurrencyFormatter.formatCents(expense.totalCents),
@@ -268,6 +277,7 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -281,14 +291,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Noch keine Ausgaben in diesem Monat',
+              l10n.expensesListEmpty,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Tippe auf "Neu", um eine Ausgabe zu erfassen.',
+              l10n.expensesListEmptyHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -37,6 +38,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final auth = ref.watch(authStateProvider);
     final isWorking = auth.value?.status == AuthStatus.unlocking;
     final error = auth.value?.errorMessage;
@@ -56,7 +58,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Willkommen bei ${AppConstants.appName}',
+                l10n.setupTitleWelcome(AppConstants.appName),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
@@ -64,9 +66,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Deine Daten werden lokal verschluesselt gespeichert. '
-                'Zugriff bekommst du ueber Biometrie '
-                '(Fingerabdruck / Gesicht) oder die Geraete-PIN.',
+                l10n.setupExplanation,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -90,9 +90,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Wichtig: Es gibt keinen Cloud-Backup und kein '
-                        'Recovery. Bei Geraeteverlust sind alle Bons, '
-                        'Budgets und Kategorien unwiederbringlich weg.',
+                        l10n.setupNoRecoveryWarning,
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -102,10 +100,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               const SizedBox(height: 32),
               if (_biometricsAvailable == false) ...<Widget>[
                 Text(
-                  'Auf diesem Geraet ist keine Biometrie eingerichtet. '
-                  'Bitte zuerst in den System-Einstellungen einen '
-                  'Fingerabdruck oder Face-ID hinterlegen und die App '
-                  'neu starten.',
+                  l10n.setupNoBiometricsHint,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.error,
@@ -131,7 +126,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Mit Biometrie einrichten'),
+                    : Text(l10n.setupButton),
               ),
               const SizedBox(height: 8),
               if (_biometricsAvailable == null)

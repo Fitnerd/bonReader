@@ -37,6 +37,60 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   }
 
   @override
+  Future<List<Expense>> getPage({
+    required int offset,
+    required int limit,
+  }) async {
+    if (offset < 0 || limit <= 0) return const <Expense>[];
+    final rows = await _db.query(
+      DbTables.expenses,
+      orderBy: '${ExpenseCols.occurredAt} DESC',
+      limit: limit,
+      offset: offset,
+    );
+    return _hydrateAll(rows);
+  }
+
+  @override
+  Future<List<Expense>> getPageInRange({
+    required DateTime from,
+    required DateTime to,
+    required int offset,
+    required int limit,
+  }) async {
+    if (offset < 0 || limit <= 0) return const <Expense>[];
+    final rows = await _db.query(
+      DbTables.expenses,
+      where: '${ExpenseCols.occurredAt} BETWEEN ? AND ?',
+      whereArgs: <Object?>[
+        from.millisecondsSinceEpoch,
+        to.millisecondsSinceEpoch,
+      ],
+      orderBy: '${ExpenseCols.occurredAt} DESC',
+      limit: limit,
+      offset: offset,
+    );
+    return _hydrateAll(rows);
+  }
+
+  @override
+  Future<int> getCount() async {
+    final rows = await _db
+        .rawQuery('SELECT COUNT(*) AS c FROM ${DbTables.expenses}');
+    return (rows.first['c'] as int?) ?? 0;
+  }
+
+  @override
+  Future<int> getCountInRange(DateTime from, DateTime to) async {
+    final rows = await _db.rawQuery(
+      'SELECT COUNT(*) AS c FROM ${DbTables.expenses} '
+      'WHERE ${ExpenseCols.occurredAt} BETWEEN ? AND ?',
+      <Object?>[from.millisecondsSinceEpoch, to.millisecondsSinceEpoch],
+    );
+    return (rows.first['c'] as int?) ?? 0;
+  }
+
+  @override
   Future<Map<String, int>> getTotalsByCategory(
     DateTime from,
     DateTime to,
@@ -94,7 +148,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           ExpenseItemCols.id: _uuid.v4(),
           ExpenseItemCols.expenseId: expenseId,
           ExpenseItemCols.name: item.name,
-          ExpenseItemCols.quantity: item.quantity,
+          ExpenseItemCols.quantityMilli: item.quantityMilli,
           ExpenseItemCols.unitPriceCents: item.unitPriceCents,
           ExpenseItemCols.totalCents: item.totalCents,
         });
@@ -139,7 +193,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
           ExpenseItemCols.id: item.id,
           ExpenseItemCols.expenseId: expense.id,
           ExpenseItemCols.name: item.name,
-          ExpenseItemCols.quantity: item.quantity,
+          ExpenseItemCols.quantityMilli: item.quantityMilli,
           ExpenseItemCols.unitPriceCents: item.unitPriceCents,
           ExpenseItemCols.totalCents: item.totalCents,
         });
@@ -195,7 +249,7 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
               id: r[ExpenseItemCols.id]! as String,
               expenseId: r[ExpenseItemCols.expenseId]! as String,
               name: r[ExpenseItemCols.name]! as String,
-              quantity: (r[ExpenseItemCols.quantity]! as num).toDouble(),
+              quantityMilli: r[ExpenseItemCols.quantityMilli]! as int,
               unitPriceCents: r[ExpenseItemCols.unitPriceCents]! as int,
               totalCents: r[ExpenseItemCols.totalCents]! as int,
             ))

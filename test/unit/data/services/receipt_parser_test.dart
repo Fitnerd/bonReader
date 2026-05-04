@@ -115,7 +115,7 @@ void main() {
       ]);
       expect(r.items, hasLength(1));
       expect(r.items[0].name, 'Brot');
-      expect(r.items[0].quantity, 2);
+      expect(r.items[0].quantityMilli, 2000);
       expect(r.items[0].unitPriceCents, 199);
       expect(r.items[0].totalCents, 398);
     });
@@ -283,7 +283,7 @@ void main() {
       expect(r.items, hasLength(1));
       expect(r.items[0].name, 'BIO GOUDA GER.');
       expect(r.items[0].totalCents, 318);
-      expect(r.items[0].quantity, 2);
+      expect(r.items[0].quantityMilli, 2000);
       expect(r.items[0].unitPriceCents, 159);
     });
 
@@ -301,7 +301,7 @@ void main() {
       expect(r.items, hasLength(2));
       expect(r.items[0].name, 'WAGNER PICCOLINI');
       expect(r.items[0].totalCents, 698);
-      expect(r.items[0].quantity, 2);
+      expect(r.items[0].quantityMilli, 2000);
       expect(r.items[0].unitPriceCents, 349);
       expect(r.items[1].name, 'JA! GOUDA JUNG');
       expect(r.items[1].totalCents, 245);
@@ -344,7 +344,7 @@ void main() {
       expect(r.items, hasLength(1));
       expect(r.items[0].name, 'WAGNER PICCOLINI');
       expect(r.items[0].totalCents, 698);
-      expect(r.items[0].quantity, 2);
+      expect(r.items[0].quantityMilli, 2000);
       expect(r.items[0].unitPriceCents, 349);
     });
 
@@ -356,7 +356,7 @@ void main() {
         'SUMME 3,18',
       ]);
       expect(r.items, hasLength(1));
-      expect(r.items[0].quantity, 2);
+      expect(r.items[0].quantityMilli, 2000);
       expect(r.items[0].unitPriceCents, 159);
     });
 
@@ -429,7 +429,7 @@ void main() {
       // 3 echte Positionen + 1 Leergut, KEIN Phantom-Item '.2 Stk x'.
       expect(r.items, hasLength(4));
       expect(r.items[0].name, 'WAGNER PICCOLINI');
-      expect(r.items[0].quantity, 2);
+      expect(r.items[0].quantityMilli, 2000);
       expect(r.items[0].unitPriceCents, 349);
       expect(r.items[0].totalCents, 698);
       expect(r.items[1].name, 'PIZZA AMORE MOZZ');
@@ -508,15 +508,15 @@ void main() {
       ]);
       expect(r.items, hasLength(3));
       expect(r.items[0].name, 'Dinkel-Deern');
-      expect(r.items[0].quantity, 1);
+      expect(r.items[0].quantityMilli, 1000);
       expect(r.items[0].unitPriceCents, 415);
       expect(r.items[0].totalCents, 415);
       expect(r.items[1].name, 'Seemoehren');
-      expect(r.items[1].quantity, 2);
+      expect(r.items[1].quantityMilli, 2000);
       expect(r.items[1].unitPriceCents, 115);
       expect(r.items[1].totalCents, 230);
       expect(r.items[2].name, 'Kaffee to go, gross');
-      expect(r.items[2].quantity, 1);
+      expect(r.items[2].quantityMilli, 1000);
       expect(r.items[2].unitPriceCents, 300);
       expect(r.items[2].totalCents, 300);
       expect(r.totalCents, 945);
@@ -550,8 +550,8 @@ void main() {
       expect(r.items[0].name, 'RISPENTOMATE');
       expect(r.items[0].totalCents, 388);
       expect(r.items[0].unitPriceCents, 249);
-      // qty als double mit Dezimal
-      expect(r.items[0].quantity, closeTo(1.558, 0.001));
+      // qty als Milli-Integer (1.558 → 1558)
+      expect(r.items[0].quantityMilli, 1558);
     });
 
     test('kg-Mengenzeile mit Tausendertrenner-Notation', () {
@@ -562,7 +562,7 @@ void main() {
         '1.000 kg x 1,99 EUR/kg',
       ]);
       expect(r.items, hasLength(1));
-      expect(r.items[0].quantity, closeTo(1.0, 0.001));
+      expect(r.items[0].quantityMilli, 1000);
       expect(r.items[0].unitPriceCents, 199);
     });
 

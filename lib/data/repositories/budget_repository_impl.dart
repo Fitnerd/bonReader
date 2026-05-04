@@ -84,17 +84,32 @@ class BudgetRepositoryImpl implements BudgetRepository {
   }
 
   // ────────────────────────────────────────────────────────────────
-  Budget _fromRow(Map<String, Object?> row) => Budget(
-        id: row[BudgetCols.id]! as String,
-        categoryId: row[BudgetCols.categoryId]! as String,
-        amountCents: row[BudgetCols.amountCents]! as int,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(
-          row[BudgetCols.createdAt]! as int,
-        ),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(
-          row[BudgetCols.updatedAt]! as int,
-        ),
+  /// Defensive Konvertierung: bei DB-Korruption / Schema-Mismatch
+  /// werfen wir einen verstaendlichen Fehler statt einer kryptischen
+  /// `Null check operator used on a null value`-Exception.
+  Budget _fromRow(Map<String, Object?> row) {
+    final id = row[BudgetCols.id];
+    final categoryId = row[BudgetCols.categoryId];
+    final amount = row[BudgetCols.amountCents];
+    final createdAt = row[BudgetCols.createdAt];
+    final updatedAt = row[BudgetCols.updatedAt];
+    if (id is! String ||
+        categoryId is! String ||
+        amount is! int ||
+        createdAt is! int ||
+        updatedAt is! int) {
+      throw StateError(
+        'Budget-Zeile hat unerwartete Spaltentypen: $row',
       );
+    }
+    return Budget(
+      id: id,
+      categoryId: categoryId,
+      amountCents: amount,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(createdAt),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(updatedAt),
+    );
+  }
 
   Map<String, Object?> _toRow(Budget b) => <String, Object?>{
         BudgetCols.id: b.id,

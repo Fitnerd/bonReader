@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/entities/category.dart';
@@ -65,11 +66,14 @@ class _CategoryEditScreenState extends ConsumerState<CategoryEditScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final isEdit = widget.existing != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Kategorie bearbeiten' : 'Neue Kategorie'),
+        title: Text(isEdit
+            ? l10n.categoryEditTitleEdit
+            : l10n.categoryEditTitleNew),
       ),
       body: Form(
         key: _formKey,
@@ -95,15 +99,17 @@ class _CategoryEditScreenState extends ConsumerState<CategoryEditScreen> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(labelText: l10n.categoryEditNameLabel),
               maxLength: 30,
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Bitte einen Namen eingeben.';
+                if (v == null || v.trim().isEmpty) {
+                  return l10n.categoryEditNameRequired;
+                }
                 return null;
               },
             ),
             const SizedBox(height: 16),
-            Text('Farbe', style: theme.textTheme.titleMedium),
+            Text(l10n.categoryEditColorLabel, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -130,7 +136,7 @@ class _CategoryEditScreenState extends ConsumerState<CategoryEditScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Text('Icon', style: theme.textTheme.titleMedium),
+            Text(l10n.categoryEditIconLabel, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -168,7 +174,7 @@ class _CategoryEditScreenState extends ConsumerState<CategoryEditScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(isEdit ? 'Speichern' : 'Anlegen'),
+                  : Text(isEdit ? l10n.commonSave : l10n.commonCreate),
             ),
           ],
         ),

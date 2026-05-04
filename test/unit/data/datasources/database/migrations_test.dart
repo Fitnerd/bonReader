@@ -91,7 +91,7 @@ void main() {
         ExpenseItemCols.id: 'i1',
         ExpenseItemCols.expenseId: 'e1',
         ExpenseItemCols.name: 'Brot',
-        ExpenseItemCols.quantity: 1,
+        ExpenseItemCols.quantityMilli: 1000,
         ExpenseItemCols.unitPriceCents: 199,
         ExpenseItemCols.totalCents: 199,
       });
@@ -145,7 +145,7 @@ void main() {
         ExpenseItemCols.id: 'pf1',
         ExpenseItemCols.expenseId: 'e1',
         ExpenseItemCols.name: 'Pfand',
-        ExpenseItemCols.quantity: 1,
+        ExpenseItemCols.quantityMilli: 1000,
         ExpenseItemCols.unitPriceCents: -299,
         ExpenseItemCols.totalCents: -299,
       });
@@ -155,7 +155,8 @@ void main() {
   });
 
   group('Migrations - Upgrade-Pfade', () {
-    test('v1 → v3: Passwort-Spalten verschwinden, IDs bleiben', () async {
+    test('v1 → latest: Passwort-Spalten verschwinden, IDs bleiben',
+        () async {
       sqfliteFfiInit();
       final factory = databaseFactoryFfi;
 
@@ -195,7 +196,7 @@ void main() {
       expect(rows.first[AuthCols.createdAt], 1700000000);
     });
 
-    test('v2 → v3: Auth-Tabelle wird zurueckgebaut', () async {
+    test('v2 → latest: Auth-Tabelle wird zurueckgebaut', () async {
       sqfliteFfiInit();
       final factory = databaseFactoryFfi;
 
@@ -222,6 +223,82 @@ void main() {
       final names = cols.map((r) => r['name'] as String).toSet();
       expect(names, isNot(contains('password_hash')));
       expect((await db.query(DbTables.auth)).length, 1);
+    });
+
+    test('v3 → v4: quantity REAL wird zu quantity_milli INTEGER * 1000',
+        () async {
+      sqfliteFfiInit();
+      final factory = databaseFactoryFfi;
+
+      // 1) DB als v3 oeffnen.
+      final db = await factory.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+          version: 3,
+          onCreate: (db, _) => Migrations.onCreate(db, 3),
+        ),
+      );
+      addTearDown(db.close);
+
+      // Beispieldaten anlegen (kategorie + ausgabe + zwei items mit
+      // unterschiedlichen quantitaeten).
+      await db.insert(DbTables.categories, <String, Object?>{
+        CategoryCols.id: 'c1',
+        CategoryCols.name: 'Test',
+        CategoryCols.colorValue: 0,
+        CategoryCols.iconCodePoint: 0xe000,
+        CategoryCols.isDefault: 0,
+        CategoryCols.isHidden: 0,
+        CategoryCols.createdAt: 0,
+      });
+      await db.insert(DbTables.expenses, <String, Object?>{
+        ExpenseCols.id: 'e1',
+        ExpenseCols.categoryId: 'c1',
+        ExpenseCols.totalCents: 500,
+        ExpenseCols.merchant: '',
+        ExpenseCols.occurredAt: 0,
+        ExpenseCols.note: '',
+        ExpenseCols.createdAt: 0,
+      });
+      // v3-Schema hat noch die `quantity` REAL-Spalte.
+      await db.rawInsert(
+        'INSERT INTO ${DbTables.expenseItems} '
+        '(${ExpenseItemCols.id}, ${ExpenseItemCols.expenseId}, '
+        '${ExpenseItemCols.name}, quantity, '
+        '${ExpenseItemCols.unitPriceCents}, ${ExpenseItemCols.totalCents}) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        <Object?>['i1', 'e1', 'Apfel', 1.5, 200, 300],
+      );
+      await db.rawInsert(
+        'INSERT INTO ${DbTables.expenseItems} '
+        '(${ExpenseItemCols.id}, ${ExpenseItemCols.expenseId}, '
+        '${ExpenseItemCols.name}, quantity, '
+        '${ExpenseItemCols.unitPriceCents}, ${ExpenseItemCols.totalCents}) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        <Object?>['i2', 'e1', 'Brot', 1.0, 200, 200],
+      );
+
+      // 2) v4-Migration laufen lassen.
+      await Migrations.onUpgrade(db, 3, Migrations.latestVersion);
+
+      // 3) Schema-Check: alte Spalte weg, neue da, INTEGER.
+      final cols = await db
+          .rawQuery('PRAGMA table_info(${DbTables.expenseItems});');
+      final names = cols.map((r) => r['name'] as String).toSet();
+      expect(names, isNot(contains('quantity')));
+      expect(names, contains(ExpenseItemCols.quantityMilli));
+      final qmCol = cols.firstWhere(
+          (c) => c['name'] == ExpenseItemCols.quantityMilli);
+      expect(qmCol['type'], 'INTEGER');
+
+      // 4) Daten-Roundtrip: 1.5 → 1500, 1.0 → 1000.
+      final rows = await db.query(
+        DbTables.expenseItems,
+        orderBy: '${ExpenseItemCols.id} ASC',
+      );
+      expect(rows, hasLength(2));
+      expect(rows[0][ExpenseItemCols.quantityMilli], 1500);
+      expect(rows[1][ExpenseItemCols.quantityMilli], 1000);
     });
   });
 }
