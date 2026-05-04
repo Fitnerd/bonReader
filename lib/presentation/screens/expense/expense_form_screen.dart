@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/currency_formatter.dart';
 import '../../../domain/entities/category.dart';
@@ -231,7 +232,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             ? const <ExpenseItem>[]
             : _items
                 .map((i) => ExpenseItem(
-                      id: i.id ?? UniqueKey().toString(),
+                      id: i.id ?? const Uuid().v4(),
                       expenseId: existing.id,
                       name: i.nameCtrl.text.trim(),
                       quantity: i.quantity,
