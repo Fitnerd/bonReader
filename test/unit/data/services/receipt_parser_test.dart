@@ -309,6 +309,21 @@ void main() {
       expect(r.items[1].totalCents, 245);
     });
 
+
+    test('Preise mit OCR-Space nach Komma: "11, 99" wird als 1199 geparst', () {
+      // ML Kit liefert manchmal '11, 99' (mit Space nach Komma) statt
+      // '11,99'. Der Parser muss das als 1199 Cent interpretieren.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'MANDELMUS BRAUN  11, 99 B',
+        'SUMME EUR  11, 99',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'MANDELMUS BRAUN');
+      expect(r.items[0].totalCents, 1199);
+      expect(r.totalCents, 1199);
+    });
+
     test('Plausibilitaet: ignoriert Zeilen mit absurd hohen Preisen', () {
       final r = ReceiptParser.parse(<String>[
         'REWE',

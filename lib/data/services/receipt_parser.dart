@@ -45,8 +45,11 @@ class ReceiptParser {
 
   /// Preis am Ende einer Zeile, optional mit fuehrendem `EUR` / `€`.
   /// Erlaubt: `1,23`, `12,34`, `123,45`, `1.234,56` (deutsche Notation).
+  /// Erlaubt z. B. `1,23`, `12,34`, `123,45`, `1.234,56` und (durch
+  /// `\s?` um den Dezimal-Trenner) auch OCR-Schmutz wie `11, 99` oder
+  /// `0 ,99` mit Leerzeichen direkt nach dem Komma/Punkt.
   static final RegExp _priceAtEnd = RegExp(
-    r'(?:EUR\s*|€\s*)?(\d{1,4}(?:[.\s]\d{3})*[,.]\d{2})\s*(?:EUR|€)?\s*[A-Z]?\s*$',
+    r'(?:EUR\s*|€\s*)?(\d{1,4}(?:[.\s]\d{3})*\s*[,.]\s*\d{2})\s*(?:EUR|€)?\s*[A-Z]?\s*$',
   );
 
   /// Stueckzahl + Einzelpreis am Anfang einer Zeile, z. B.

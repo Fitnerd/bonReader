@@ -189,9 +189,3 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                   ],
                 ],
               ),
-          ],
-        ),
-      ),
-    );
-  }
-}
