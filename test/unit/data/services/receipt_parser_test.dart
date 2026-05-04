@@ -442,5 +442,98 @@ void main() {
       final itemSum = r.items.fold<int>(0, (s, i) => s + i.totalCents);
       expect(itemSum, 1016);
     });
+
+    test('PFAND-Zeile mit Stern-Marker am Ende: "0,25 B *"', () {
+      // Bon4-Szenario: REWE druckt PFAND mit Steuerklasse B und einem
+      // zusaetzlichen '*'-Marker. Der Preis-Regex muss den '*' nach dem
+      // Marker tolerieren.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'SALATBOWL VETA 3,49 B',
+        'BIO KEFIR 1,5% 1,59 B',
+        'PFAND 0,25 EURO  0,25 B *',
+        'SKYR 0,2% 1,45 B',
+        'BIO TK HEIDELBEE 3,69 B',
+        'SUMME EUR 10,47',
+      ]);
+      expect(r.items, hasLength(5));
+      expect(r.items[0].name, 'SALATBOWL VETA');
+      expect(r.items[0].totalCents, 349);
+      expect(r.items[1].name, 'BIO KEFIR 1,5%');
+      expect(r.items[1].totalCents, 159);
+      expect(r.items[2].totalCents, 25);
+      expect(r.items[2].name.toLowerCase(), contains('pfand'));
+      expect(r.items[3].name, 'SKYR 0,2%');
+      expect(r.items[3].totalCents, 145);
+      expect(r.items[4].name, 'BIO TK HEIDELBEE');
+      expect(r.items[4].totalCents, 369);
+      expect(r.totalCents, 1047);
+      final itemSum = r.items.fold<int>(0, (s, i) => s + i.totalCents);
+      expect(itemSum, 1047);
+    });
+
+    test('Stern-Marker hinter normalem Item: "0,25 *"', () {
+      // Auch fuer Nicht-Pfand-Zeilen mit alleinstehendem '*'-Marker.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'TEST-PRODUKT 1,99 *',
+        'SUMME 1,99',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'TEST-PRODUKT');
+      expect(r.items[0].totalCents, 199);
+    });
+
+    test('Baecker-Layout: Mengenzeile mit Total am Ende, Name auf Folgezeile',
+        () {
+      // Bon5 (Baeckerei): das umgekehrte Layout.
+      //   1 x 4,15 EUR        4,15 EUR
+      //   Dinkel-Deern
+      //   2 x 1,15 EUR        2,30 EUR
+      //   Seemoehren
+      //   1 x 3,00 EUR        3,00 EUR
+      //   Kaffee to go, gross
+      //   Total               9,45 EUR
+      final r = ReceiptParser.parse(<String>[
+        'Westerstr. 19',
+        '28199 Bremen',
+        'Rechnung',
+        '1 x 4,15 €    4,15 €',
+        'Dinkel-Deern',
+        '2 x 1,15 €    2,30 €',
+        'Seemoehren',
+        '1 x 3,00 €    3,00 €',
+        'Kaffee to go, gross',
+        'Total 9,45 €',
+      ]);
+      expect(r.items, hasLength(3));
+      expect(r.items[0].name, 'Dinkel-Deern');
+      expect(r.items[0].quantity, 1);
+      expect(r.items[0].unitPriceCents, 415);
+      expect(r.items[0].totalCents, 415);
+      expect(r.items[1].name, 'Seemoehren');
+      expect(r.items[1].quantity, 2);
+      expect(r.items[1].unitPriceCents, 115);
+      expect(r.items[1].totalCents, 230);
+      expect(r.items[2].name, 'Kaffee to go, gross');
+      expect(r.items[2].quantity, 1);
+      expect(r.items[2].unitPriceCents, 300);
+      expect(r.items[2].totalCents, 300);
+      expect(r.totalCents, 945);
+    });
+
+    test('Baecker-Layout: keine Folge-Name-Zeile -> Item wird verworfen', () {
+      // Edge case: '1 x 2,00 EUR  2,00 EUR' ist letzte Zeile. Ohne
+      // Folgename darf kein Phantom-Item entstehen.
+      final r = ReceiptParser.parse(<String>[
+        'BAECKER',
+        '1 x 4,15 €    4,15 €',
+        'Brezel',
+        '1 x 2,00 €    2,00 €',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'Brezel');
+    });
+
   });
 }
