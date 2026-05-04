@@ -82,3 +82,6 @@ app.*.map.json
 *.secret
 secrets.dart
 
+
+# Lokale Bundle-Exports
+*.bundle
