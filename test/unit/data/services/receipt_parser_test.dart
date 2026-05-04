@@ -253,6 +253,62 @@ void main() {
       expect(r.confidence, 1.0);
     });
 
+
+    test('Multi-Line-Item: Name auf eine Zeile, Preis auf naechster Zeile', () {
+      // ML Kit splittet bei breiten Whitespace-Luecken oft in zwei
+      // separate OCR-Zeilen. Der Parser muss den Namen aus der vorigen
+      // Zeile uebernehmen, wenn die naechste Zeile nur einen Preis hat.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'RISPENTOMATE',
+        '3,88 B',
+        'ROTKOHL',
+        '3,93 B',
+        'SUMME 7,81',
+      ]);
+      expect(r.items, hasLength(2));
+      expect(r.items[0].name, 'RISPENTOMATE');
+      expect(r.items[0].totalCents, 388);
+      expect(r.items[1].name, 'ROTKOHL');
+      expect(r.items[1].totalCents, 393);
+      expect(r.totalCents, 781);
+    });
+
+    test('Mengen-Zeile mit Stk-Suffix: 2 Stk x 1,59', () {
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'BIO GOUDA GER.',
+        '3,18 B',
+        '2 Stk x 1,59',
+        'SUMME 3,18',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'BIO GOUDA GER.');
+      expect(r.items[0].totalCents, 318);
+      expect(r.items[0].quantity, 2);
+      expect(r.items[0].unitPriceCents, 159);
+    });
+
+    test('Mehrfacher Multi-Line-Mix: Name/Preis-Paare und Mengenzeile dazwischen',
+        () {
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'WAGNER PICCOLINI',
+        '6,98 B',
+        '2 Stk x 3,49',
+        'JA! GOUDA JUNG',
+        '2,45 B',
+        'SUMME 9,43',
+      ]);
+      expect(r.items, hasLength(2));
+      expect(r.items[0].name, 'WAGNER PICCOLINI');
+      expect(r.items[0].totalCents, 698);
+      expect(r.items[0].quantity, 2);
+      expect(r.items[0].unitPriceCents, 349);
+      expect(r.items[1].name, 'JA! GOUDA JUNG');
+      expect(r.items[1].totalCents, 245);
+    });
+
     test('Plausibilitaet: ignoriert Zeilen mit absurd hohen Preisen', () {
       final r = ReceiptParser.parse(<String>[
         'REWE',

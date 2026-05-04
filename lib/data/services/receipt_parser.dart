@@ -51,8 +51,10 @@ class ReceiptParser {
 
   /// Stueckzahl + Einzelpreis am Anfang einer Zeile, z. B.
   /// `2 X 1,99 = 3,98` oder `2x 1,99`.
+  /// Mengenzeile: `2 X 1,99`, `2 Stk x 1,59`, `2 stk * 0,99`. Erlaubt
+  /// optionale Einheits-Buchstaben (Stk/St/k g/g) zwischen Zahl und x.
   static final RegExp _quantityLine = RegExp(
-    r'^(\d+)\s*[xX*]\s*(\d{1,3}[,.]\d{2})',
+    r'^(\d+)\s*(?:[A-Za-z]+\s*)?[xX*]\s*(\d{1,3}[,.]\d{2})',
   );
 
   /// Zeilen, die wir nicht als Position zaehlen.
@@ -205,13 +207,21 @@ class ReceiptParser {
   // ─────────────────────────────────────────── Positionen
   static List<ExpenseItemDraft> _detectItems(List<String> lines) {
     final items = <ExpenseItemDraft>[];
+    // Multi-Line-Assembly: ML Kit splittet bei grossen Whitespace-Bloecken
+    // 'RISPENTOMATE         3,88 B' oft in zwei OCR-Zeilen
+    //   'RISPENTOMATE'
+    //   '3,88 B'
+    // Wir merken uns daher den letzten Namen-ohne-Preis und nutzen ihn,
+    // wenn die naechste Zeile nur einen Preis enthaelt.
+    String? pendingName;
 
     for (var i = 0; i < lines.length; i++) {
       final raw = lines[i];
       final lower = raw.toLowerCase();
 
-      // Mengenzeile: `2 X 1,99`. Bei deutschen Bons (Rewe, Edeka, Aldi, ...)
-      // steht diese Zeile typischerweise NACH dem totalisierten Item, z. B.:
+      // Mengenzeile: `2 X 1,99` / `2 Stk x 1,59`. Bei deutschen Bons
+      // (Rewe, Edeka, Aldi, ...) steht diese Zeile typischerweise NACH
+      // dem totalisierten Item, z. B.:
       //   WAGNER PICCOLINI            6,98 B
       //     2 Stk x    3,49
       // Die 6,98 ist der Gesamtbetrag, 2 × 3,49 die Aufschluesselung.
@@ -229,30 +239,58 @@ class ReceiptParser {
             totalCents: last.totalCents,
           );
         }
+        pendingName = null;
         continue;
       }
 
       // Ignorieren?
-      if (_ignoreSubstrings.any(lower.contains)) continue;
+      if (_ignoreSubstrings.any(lower.contains)) {
+        pendingName = null;
+        continue;
+      }
 
       // Datum allein → ueberspringen
       if (_datePattern.hasMatch(lower) &&
           !_priceAtEnd.hasMatch(raw.trim())) {
+        pendingName = null;
         continue;
       }
 
       // Preis am Ende?
       final cents = _priceFromLine(raw);
-      if (cents == null) continue;
+      if (cents == null) {
+        // Diese Zeile ist KEIN Preis - sie koennte aber der Name fuer
+        // die naechste Preiszeile sein. Merken.
+        // Filter: zu kurz oder rein numerisch -> ignorieren.
+        final trimmed = raw.trim();
+        if (trimmed.length >= 2 &&
+            RegExp(r'[A-Za-zÄÖÜäöüß]').hasMatch(trimmed)) {
+          pendingName = trimmed;
+        }
+        continue;
+      }
 
       // Plausibilitaet: hohe Preise (> 1000 €) sind selten echt
-      if (cents > 100000) continue;
+      if (cents > 100000) {
+        pendingName = null;
+        continue;
+      }
 
-      // Name extrahieren: alles ohne Preis am Ende
+      // Name aus dieser Zeile extrahieren (alles ohne Preis am Ende)
       var name = raw.replaceFirst(_priceAtEnd, '').trim();
       // Trailing Steuerklassen-Marker (A/B/*) entfernen
       name = name.replaceAll(RegExp(r'[\*\s]+[ABab]\s*$'), '').trim();
-      if (name.isEmpty) continue;
+
+      // Wenn nach dem Strippen nichts mehr uebrig ist, war es eine
+      // 'nur-Preis'-Zeile - dann nimm den gemerkten Namen aus der
+      // vorigen Zeile.
+      if (name.isEmpty) {
+        name = pendingName ?? '';
+      }
+      if (name.isEmpty) {
+        pendingName = null;
+        continue;
+      }
 
       items.add(ExpenseItemDraft(
         name: name,
@@ -260,6 +298,7 @@ class ReceiptParser {
         unitPriceCents: cents,
         totalCents: cents,
       ));
+      pendingName = null;
     }
     return items;
   }
