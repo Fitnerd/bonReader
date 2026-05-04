@@ -17,13 +17,13 @@ class ParsedReceipt {
   final String merchant;
   final DateTime occurredAt;
 
-  /// Bevorzugt der erkannte „Summe / Gesamt"-Betrag. Faellt sonst auf
+  /// Bevorzugt der erkannte ,,Summe / Gesamt"-Betrag. Faellt sonst auf
   /// die Summe der Positionen zurueck. 0 wenn nichts erkannt wurde.
   final int totalCents;
 
   final List<ExpenseItemDraft> items;
 
-  /// Heuristische Sicherheit (0..1). Niedrige Werte → Hinweis im UI,
+  /// Heuristische Sicherheit (0..1). Niedrige Werte -> Hinweis im UI,
   /// dass der Nutzer pruefen soll.
   final double confidence;
 }
@@ -31,9 +31,9 @@ class ParsedReceipt {
 /// Heuristischer Parser fuer Kassenbons.
 ///
 /// Wir halten das bewusst simpel und regel-basiert:
-/// * Haendler: erste sichtbare „dicke" Zeile, die wie ein Name aussieht.
+/// * Haendler: erste sichtbare ,,dicke" Zeile, die wie ein Name aussieht.
 /// * Datum: erstes Vorkommen `DD.MM.YYYY` oder `DD.MM.YY`.
-/// * Total: Zeile mit „Summe", „Gesamt", „Total", „EUR" oder „Bar".
+/// * Total: Zeile mit ,,Summe", ,,Gesamt", ,,Total", ,,EUR" oder ,,Bar".
 /// * Positionen: Zeilen mit einem Preis am Ende (`d+,dd`), die NICHT
 ///   als Total / Steuer / Rueckgeld erkannt sind.
 class ReceiptParser {
@@ -43,28 +43,45 @@ class ReceiptParser {
     r'\b(0?[1-9]|[12][0-9]|3[01])\s*\.\s*(0?[1-9]|1[0-2])\s*\.\s*(\d{2,4})\b',
   );
 
-  /// Preis am Ende einer Zeile, optional mit fuehrendem `EUR` / `€`.
-  /// Erlaubt: `1,23`, `12,34`, `123,45`, `1.234,56` (deutsche Notation).
-  /// Erlaubt z. B. `1,23`, `12,34`, `123,45`, `1.234,56` und (durch
-  /// `\s?` um den Dezimal-Trenner) auch OCR-Schmutz wie `11, 99` oder
-  /// `0 ,99` mit Leerzeichen direkt nach dem Komma/Punkt.
+  /// Preis am Ende einer Zeile, optional mit fuehrendem `EUR` / Euro-Zeichen.
+  /// Erlaubt: `1,23`, `12,34`, `123,45`, `1.234,56` (deutsche Notation),
+  /// und durch `\s*` um den Dezimal-Trenner auch OCR-Schmutz wie
+  /// `11, 99` oder `0 ,99` mit Leerzeichen direkt nach dem Komma/Punkt.
   static final RegExp _priceAtEnd = RegExp(
     r'(?:EUR\s*|€\s*)?(\d{1,4}(?:[.\s]\d{3})*\s*[,.]\s*\d{2})\s*(?:EUR|€)?\s*[A-Z]?\s*$',
   );
 
-  /// Stueckzahl + Einzelpreis am Anfang einer Zeile, z. B.
-  /// `2 X 1,99 = 3,98` oder `2x 1,99`.
   /// Mengenzeile: `2 X 1,99`, `2 Stk x 1,59`, `2 stk * 0,99`. Erlaubt
   /// optionale Einheits-Buchstaben (Stk/St/k g/g) zwischen Zahl und x.
+  /// Tolerant gegen fuehrenden OCR-Schmutz wie `.2 Stk x 1,59` (ML Kit
+  /// liest manchmal einen Pixel/Punkt vor der Mengen-Ziffer).
   static final RegExp _quantityLine = RegExp(
-    r'^(\d+)\s*(?:[A-Za-z]+\s*)?[xX*]\s*(\d{1,3}\s*[,.]\s*\d{2})',
+    r'^[\s.,;:_\-]*(\d+)\s*(?:[A-Za-z]+\s*)?[xX*]\s*(\d{1,3}\s*[,.]\s*\d{2})',
+  );
+
+  /// Pfand-/Leergut-Zeile. Wir erkennen sie eigenstaendig, weil der
+  /// Wert positiv (Pfand bezahlen) ODER negativ (Leergut-Erstattung)
+  /// sein kann, und beides als Item in den Bon einfliessen soll.
+  static final RegExp _pfandKeyword = RegExp(
+    r'\b(pfand|leergut|einwegpfand|mehrwegpfand)\b',
+    caseSensitive: false,
+  );
+
+  /// Preis am Ende mit optionalem Vorzeichen davor oder nachgestelltem
+  /// Minus (deutsche Bons: `-2,99` ODER `2,99-`).
+  static final RegExp _signedPriceAtEnd = RegExp(
+    r'(?:EUR\s*|€\s*)?(-?\s*\d{1,4}(?:[.\s]\d{3})*\s*[,.]\s*\d{2}\s*-?)\s*(?:EUR|€)?\s*[A-Z]?\s*$',
   );
 
   /// Zeilen, die wir nicht als Position zaehlen.
   /// Wichtig: Reihenfolge zaehlt nicht, Gross-/Kleinschreibung egal.
+  ///
+  /// HINWEIS: 'pfand' / 'leergut' sind hier bewusst NICHT enthalten -
+  /// die werden als eigene (ggf. negative) Position in `_detectItems`
+  /// behandelt.
   static const List<String> _ignoreSubstrings = <String>[
     'summe', 'gesamt', 'total', 'zwischensumme', 'mwst', 'ust',
-    'rueckgeld', 'rückgeld', 'gegeben', 'geg.', 'bar',
+    'rueckgeld', 'rueckgeld', 'gegeben', 'geg.', 'bar',
     // Bezahlmethoden / EC-Cash-Spuren
     'ec-karte', 'ec-cash', 'eccash', 'visa', 'mastercard',
     'kartenzahlung', 'contactless', 'girocard', 'paypal',
@@ -73,7 +90,7 @@ class ReceiptParser {
     'trace-nr', 'tracenr', 'terminal-id', 'terminalid', 'pos-info',
     'as-zeit', 'kundenbeleg', 'haendlerbeleg', 'haendler-beleg',
     'datum', 'uhrzeit', 'kasse', 'kassierer', 'filiale', 'ihre',
-    'tse', 'qr-code', 'serien-nr', 'transaktion', 'pfand zurueck',
+    'tse', 'qr-code', 'serien-nr', 'transaktion',
     'steuer', 'netto', 'brutto', 'eur', 'betrag',
     'zahlung erfolgt', 'zahlung erfolgreich',
   ];
@@ -81,6 +98,7 @@ class ReceiptParser {
   static const List<String> _totalKeywords = <String>[
     'summe', 'gesamt', 'total', 'zu zahlen', 'zahlbetrag',
   ];
+
   /// Bekannte Lebensmittel-/Drogerie-Ketten in DE. Hilft, den Haendler
   /// auch dann zu erkennen, wenn die erste Zeile keine plausible Form
   /// hat - und liefert einen kleinen Confidence-Bonus.
@@ -89,7 +107,6 @@ class ReceiptParser {
     'BUDNI', 'DM', 'ROSSMANN', 'MUELLER', 'NORMA', 'REAL', 'COMBI',
     'TEGUT', 'METRO', 'GLOBUS',
   ];
-
 
   /// Parser-Einstieg.
   static ParsedReceipt parse(
@@ -117,7 +134,7 @@ class ReceiptParser {
     //   total   = 0.30
     //   date    = 0.15
     //   merchant= 0.10
-    //   bekannter Haendler   = +0.05 Bonus
+    //   bekannter Haendler = +0.05 Bonus
     var confidence = 0.0;
     if (items.isNotEmpty) confidence += 0.40;
     if (totalCents != null) confidence += 0.30;
@@ -135,7 +152,7 @@ class ReceiptParser {
     );
   }
 
-  // ─────────────────────────────────────────── Haendler
+  // --------------------------------------------- Haendler
   static String _detectMerchant(List<String> lines) {
     // Vorrang: Zeile mit bekanntem Ketten-Namen finden, irgendwo in den
     // ersten 8 Zeilen. Wir geben die GANZE TRIMMED ZEILE zurueck (nicht
@@ -155,17 +172,20 @@ class ReceiptParser {
       if (_datePattern.hasMatch(l)) continue;
       if (RegExp(r'^\d').hasMatch(l)) continue;
       if (l.toLowerCase().contains('strasse') ||
-          l.toLowerCase().contains('straße') ||
+          l.toLowerCase().contains('strasse') ||
           l.toLowerCase().contains('gmbh')) {
         continue;
       }
-      final letters = RegExp(r'[A-Za-zÄÖÜäöüß]').allMatches(l).length;
+      final letters =
+          RegExp(r'[A-Za-zÄÖÜäöüß]')
+              .allMatches(l)
+              .length;
       if (letters >= 3) return l;
     }
     return lines.isNotEmpty ? lines.first : '';
   }
 
-  // ─────────────────────────────────────────── Datum
+  // --------------------------------------------- Datum
   static DateTime? _detectDate(List<String> lines) {
     for (final l in lines) {
       final m = _datePattern.firstMatch(l);
@@ -183,7 +203,7 @@ class ReceiptParser {
     return null;
   }
 
-  // ─────────────────────────────────────────── Total
+  // --------------------------------------------- Total
   static int? _detectTotalCents(List<String> lines) {
     // Wir gehen von unten, weil das Total ueblicherweise am Ende des Bons steht.
     // Wenn die Keyword-Zeile selbst keinen Preis hat (z. B. SUMME ist auf
@@ -209,11 +229,12 @@ class ReceiptParser {
     return null;
   }
 
-  // ─────────────────────────────────────────── Positionen
+  // --------------------------------------------- Positionen
   static List<ExpenseItemDraft> _detectItems(List<String> lines) {
     final items = <ExpenseItemDraft>[];
     // Multi-Line-Assembly: ML Kit splittet bei grossen Whitespace-Bloecken
-    // 'RISPENTOMATE         3,88 B' oft in zwei OCR-Zeilen
+    //   'RISPENTOMATE         3,88 B'
+    // oft in zwei OCR-Zeilen
     //   'RISPENTOMATE'
     //   '3,88 B'
     // Wir merken uns daher den letzten Namen-ohne-Preis und nutzen ihn,
@@ -229,7 +250,7 @@ class ReceiptParser {
       // dem totalisierten Item, z. B.:
       //   WAGNER PICCOLINI            6,98 B
       //     2 Stk x    3,49
-      // Die 6,98 ist der Gesamtbetrag, 2 × 3,49 die Aufschluesselung.
+      // Die 6,98 ist der Gesamtbetrag, 2 x 3,49 die Aufschluesselung.
       // Wir aktualisieren daher das zuletzt erfasste Item retroaktiv.
       final qMatch = _quantityLine.firstMatch(raw);
       if (qMatch != null) {
@@ -248,13 +269,37 @@ class ReceiptParser {
         continue;
       }
 
+      // Pfand / Leergut: eigene Behandlung - kann positiv (Pfand zahlen)
+      // oder negativ (Leergut-Erstattung) sein. Wir nehmen den signierten
+      // Preis und legen eine Position mit dem entsprechenden Vorzeichen an.
+      if (_pfandKeyword.hasMatch(lower)) {
+        final signed = _signedPriceFromLine(raw);
+        if (signed != null) {
+          // Plausibilitaet: extrem hohe Pfand-Werte sind unrealistisch.
+          if (signed.abs() <= 100000) {
+            // Name aus dem Pfand-Keyword extrahieren (oder einfach 'Pfand')
+            var name = raw.replaceFirst(_signedPriceAtEnd, '').trim();
+            name = name.replaceAll(RegExp(r'[\*\s]+[ABab]\s*$'), '').trim();
+            if (name.isEmpty) name = signed < 0 ? 'Leergut' : 'Pfand';
+            items.add(ExpenseItemDraft(
+              name: name,
+              quantity: 1,
+              unitPriceCents: signed,
+              totalCents: signed,
+            ));
+          }
+        }
+        pendingName = null;
+        continue;
+      }
+
       // Ignorieren?
       if (_ignoreSubstrings.any(lower.contains)) {
         pendingName = null;
         continue;
       }
 
-      // Datum allein → ueberspringen
+      // Datum allein -> ueberspringen
       if (_datePattern.hasMatch(lower) &&
           !_priceAtEnd.hasMatch(raw.trim())) {
         pendingName = null;
@@ -269,13 +314,14 @@ class ReceiptParser {
         // Filter: zu kurz oder rein numerisch -> ignorieren.
         final trimmed = raw.trim();
         if (trimmed.length >= 2 &&
-            RegExp(r'[A-Za-zÄÖÜäöüß]').hasMatch(trimmed)) {
+            RegExp(r'[A-Za-zÄÖÜäöüß]')
+                .hasMatch(trimmed)) {
           pendingName = trimmed;
         }
         continue;
       }
 
-      // Plausibilitaet: hohe Preise (> 1000 €) sind selten echt
+      // Plausibilitaet: hohe Preise (> 1000 EUR) sind selten echt
       if (cents > 100000) {
         pendingName = null;
         continue;
@@ -308,14 +354,22 @@ class ReceiptParser {
     return items;
   }
 
-  // ─────────────────────────────────────────── Helpers
+  // --------------------------------------------- Helpers
   static int? _priceFromLine(String line) {
     final m = _priceAtEnd.firstMatch(line.trim());
     if (m == null) return null;
     return _priceToCents(m.group(1)!);
   }
 
-  /// `1.234,56` → 123456, `12,34` → 1234, `1234.56` (en) → 123456.
+  /// Wie [_priceFromLine], aber liefert das Vorzeichen mit. Erkennt
+  /// fuehrende Minus (`-2,99`) und nachgestellte Minus (`2,99-`).
+  static int? _signedPriceFromLine(String line) {
+    final m = _signedPriceAtEnd.firstMatch(line.trim());
+    if (m == null) return null;
+    return _signedPriceToCents(m.group(1)!);
+  }
+
+  /// `1.234,56` -> 123456, `12,34` -> 1234, `1234.56` (en) -> 123456.
   static int? _priceToCents(String raw) {
     var s = raw.replaceAll(' ', '');
     // Wenn sowohl `.` als auch `,` vorkommen, ist `.` Tausender-Trenner.
@@ -328,5 +382,22 @@ class ReceiptParser {
     if (v == null) return null;
     if (v < 0) return null;
     return (v * 100).round();
+  }
+
+  /// Wie [_priceToCents], aber erlaubt fuehrendes oder nachgestelltes
+  /// Minus. Ergebnis kann negativ sein.
+  static int? _signedPriceToCents(String raw) {
+    var s = raw.replaceAll(' ', '');
+    var negative = false;
+    if (s.startsWith('-')) {
+      negative = true;
+      s = s.substring(1);
+    } else if (s.endsWith('-')) {
+      negative = true;
+      s = s.substring(0, s.length - 1);
+    }
+    final cents = _priceToCents(s);
+    if (cents == null) return null;
+    return negative ? -cents : cents;
   }
 }

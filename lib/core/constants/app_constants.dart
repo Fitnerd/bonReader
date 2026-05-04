@@ -8,11 +8,11 @@ class AppConstants {
   /// App-Name (wird in der UI angezeigt).
   static const String appName = 'BonBudget';
 
-  /// Default-Währung. Später per Einstellungen änderbar.
+  /// Default-Waehrung. Spaeter per Einstellungen aenderbar.
   static const String defaultCurrencyCode = 'EUR';
   static const String defaultLocale = 'de_DE';
 
-  /// Auto-Logout nach Inaktivität (in Minuten). Später konfigurierbar.
+  /// Auto-Logout nach Inaktivitaet (in Minuten). Spaeter konfigurierbar.
   static const int defaultAutoLogoutMinutes = 5;
 
   /// Maximale Anzahl Login-Fehlversuche, bevor eine Pause erzwungen wird.
@@ -22,7 +22,7 @@ class AppConstants {
   static const Duration loginCooldown = Duration(minutes: 1);
 
   /// Argon2id-Parameter (RFC 9106 empfiehlt mindestens diese Werte
-  /// für interaktive Anmeldung auf mobilen Geräten).
+  /// fuer interaktive Anmeldung auf mobilen Geraeten).
   static const int argon2Iterations = 3;
   static const int argon2MemoryKb = 65536; // 64 MB
   static const int argon2Parallelism = 4;
@@ -33,7 +33,7 @@ class AppConstants {
   static const int minAutoLogoutMinutes = 1;
   static const int maxAutoLogoutMinutes = 30;
 
-  /// Schlüssel für Secure Storage. NICHT die Werte selbst, nur die Keys.
+  /// Schluessel fuer Secure Storage. NICHT die Werte selbst, nur die Keys.
   static const String secureKeyDbPassphrase = 'bonbudget.db.passphrase';
   static const String secureKeyAuthHash = 'bonbudget.auth.hash';
   static const String secureKeyAuthSalt = 'bonbudget.auth.salt';
@@ -42,5 +42,9 @@ class AppConstants {
 
   /// Datenbankname (wird im App-internen Documents-Ordner gespeichert).
   static const String databaseFileName = 'bonbudget.db';
-  static const int databaseVersion = 1;
+
+  /// Datenbank-Versionierung.
+  /// V1: initiales Schema.
+  /// V2: expense_items.total_cents darf negativ sein (Pfand/Leergut).
+  static const int databaseVersion = 2;
 }

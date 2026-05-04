@@ -53,7 +53,7 @@ void main() {
       expect(r.merchant, 'ALDI SUED');
     });
 
-    test('erkennt Total aus Zeile mit „Summe"', () {
+    test('erkennt Total aus Zeile mit Summe', () {
       final r = ReceiptParser.parse(<String>[
         'REWE',
         'Brot 1,99',
@@ -63,7 +63,7 @@ void main() {
       expect(r.totalCents, 328);
     });
 
-    test('erkennt Total aus Zeile mit „Gesamt" / „Total"', () {
+    test('erkennt Total aus Zeile mit Gesamt / Total', () {
       final r1 = ReceiptParser.parse(<String>[
         'EDEKA',
         'Apfel 0,99',
@@ -179,7 +179,7 @@ void main() {
       expect(r.items, isEmpty);
     });
 
-    test('akzeptiert „Zu zahlen" als Total-Keyword', () {
+    test('akzeptiert Zu zahlen als Total-Keyword', () {
       final r = ReceiptParser.parse(<String>[
         'EDEKA',
         'Apfel 1,00',
@@ -202,7 +202,6 @@ void main() {
       expect(r.items, hasLength(1));
       expect(r.totalCents, 199);
     });
-
 
     test('Multi-Line: SUMME-Keyword auf eigener Zeile, Preis daneben', () {
       // Wenn OCR den Whitespace-Block zwischen 'SUMME' und 'EUR 95,92'
@@ -252,7 +251,6 @@ void main() {
       // 0.40 + 0.30 + 0.15 + 0.10 + 0.05 (REWE-Bonus) = 1.00
       expect(r.confidence, 1.0);
     });
-
 
     test('Multi-Line-Item: Name auf eine Zeile, Preis auf naechster Zeile', () {
       // ML Kit splittet bei breiten Whitespace-Luecken oft in zwei
@@ -309,8 +307,7 @@ void main() {
       expect(r.items[1].totalCents, 245);
     });
 
-
-    test('Preise mit OCR-Space nach Komma: "11, 99" wird als 1199 geparst', () {
+    test('Preise mit OCR-Space nach Komma: 11, 99 wird als 1199 geparst', () {
       // ML Kit liefert manchmal '11, 99' (mit Space nach Komma) statt
       // '11,99'. Der Parser muss das als 1199 Cent interpretieren.
       final r = ReceiptParser.parse(<String>[
@@ -332,6 +329,118 @@ void main() {
         'Summe 1,99',
       ]);
       expect(r.totalCents, 199);
+    });
+
+    test('Mengenzeile mit fuehrendem OCR-Punkt: .2 Stk x 3,49', () {
+      // ML Kit liest manchmal einen Pixel-Punkt vor der Mengen-Ziffer.
+      // Trotzdem soll das als Mengenzeile, nicht als eigene Position
+      // erkannt werden.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'WAGNER PICCOLINI 6,98 B',
+        '.2 Stk x  3,49',
+        'SUMME 6,98',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'WAGNER PICCOLINI');
+      expect(r.items[0].totalCents, 698);
+      expect(r.items[0].quantity, 2);
+      expect(r.items[0].unitPriceCents, 349);
+    });
+
+    test('Mengenzeile mit fuehrendem Komma: ,2 Stk x 1,59', () {
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'BIO GOUDA GER. 3,18 B',
+        ',2 Stk x  1,59',
+        'SUMME 3,18',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].quantity, 2);
+      expect(r.items[0].unitPriceCents, 159);
+    });
+
+    test('Pfand-Erstattung mit fuehrendem Minus wird negativ erfasst', () {
+      // Leergut-Rueckgabe: User bekommt Geld zurueck.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'Brot 1,99',
+        'Leergut -2,99',
+        'Summe -1,00',
+      ]);
+      expect(r.items, hasLength(2));
+      expect(r.items[0].name, 'Brot');
+      expect(r.items[0].totalCents, 199);
+      expect(r.items[1].totalCents, -299);
+      expect(r.items[1].name.toLowerCase(), contains('leergut'));
+    });
+
+    test('Pfand-Erstattung mit nachgestelltem Minus: 2,99-', () {
+      // Manche Bons drucken das Minus hinter den Wert.
+      final r = ReceiptParser.parse(<String>[
+        'EDEKA',
+        'Apfel 1,00',
+        'PFAND 2,99-',
+        'Summe -1,99',
+      ]);
+      expect(r.items, hasLength(2));
+      expect(r.items[1].totalCents, -299);
+    });
+
+    test('Positives Pfand wird als Position aufgenommen', () {
+      // Pfandflasche kaufen -> Wert positiv.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'Mineralwasser 0,89',
+        'EINWEGPFAND 0,25',
+        'Summe 1,14',
+      ]);
+      expect(r.items, hasLength(2));
+      expect(r.items[1].totalCents, 25);
+      expect(r.items[1].name.toLowerCase(), contains('pfand'));
+    });
+
+    test('Pfand-Position alleine (nur Wort Pfand, kein Kontextname)', () {
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'Brot 1,99',
+        'Pfand -0,25',
+      ]);
+      expect(r.items, hasLength(2));
+      expect(r.items[1].totalCents, -25);
+    });
+
+    test('Bon3-Szenario: WAGNER PICCOLINI + .2 Stk x + Leergut', () {
+      // Reproduziert das Screenshot-Problem von Bon3:
+      //  - WAGNER PICCOLINI 6,98 mit Mengenzeile '.2 Stk x 3,49'
+      //    (fuehrender OCR-Punkt)
+      //  - Pfand-Rueckgabe als negative Position
+      // Erwartet: kein Phantom-Item '.2 Stk x', Pfand mit korrektem
+      // Vorzeichen.
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'WAGNER PICCOLINI 6,98 B',
+        '.2 Stk x  3,49',
+        'PIZZA AMORE MOZZ 3,79 B',
+        'KNABE KOLA ZERO 2,38 B',
+        'LEERGUT -2,99',
+        'SUMME 10,16',
+      ]);
+      // 3 echte Positionen + 1 Leergut, KEIN Phantom-Item '.2 Stk x'.
+      expect(r.items, hasLength(4));
+      expect(r.items[0].name, 'WAGNER PICCOLINI');
+      expect(r.items[0].quantity, 2);
+      expect(r.items[0].unitPriceCents, 349);
+      expect(r.items[0].totalCents, 698);
+      expect(r.items[1].name, 'PIZZA AMORE MOZZ');
+      expect(r.items[1].totalCents, 379);
+      expect(r.items[2].name, 'KNABE KOLA ZERO');
+      expect(r.items[2].totalCents, 238);
+      expect(r.items[3].totalCents, -299);
+      expect(r.totalCents, 1016);
+      // Items-Summe entspricht jetzt dem Bon-Total:
+      final itemSum = r.items.fold<int>(0, (s, i) => s + i.totalCents);
+      expect(itemSum, 1016);
     });
   });
 }
