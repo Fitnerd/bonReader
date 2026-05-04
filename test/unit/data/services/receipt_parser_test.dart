@@ -535,5 +535,49 @@ void main() {
       expect(r.items[0].name, 'Brezel');
     });
 
+
+    test('kg-Mengenzeile mit Dezimal-Menge: "1,558 kg x 2,49 EUR/kg"', () {
+      // REWE-Bon mit kg-Ware: Item mit Total, dann Mengenzeile.
+      //   RISPENTOMATE          3,88 B
+      //     1,558 kg x 2,49 EUR/kg
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'RISPENTOMATE 3,88 B',
+        '1,558 kg x 2,49 EUR/kg',
+        'SUMME 3,88',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'RISPENTOMATE');
+      expect(r.items[0].totalCents, 388);
+      expect(r.items[0].unitPriceCents, 249);
+      // qty als double mit Dezimal
+      expect(r.items[0].quantity, closeTo(1.558, 0.001));
+    });
+
+    test('kg-Mengenzeile mit Tausendertrenner-Notation', () {
+      // Manche Bons drucken kg-Mengen mit Punkt: '1.558 kg x 2,49'
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'KARTOFFELN 1,99 B',
+        '1.000 kg x 1,99 EUR/kg',
+      ]);
+      expect(r.items, hasLength(1));
+      expect(r.items[0].quantity, closeTo(1.0, 0.001));
+      expect(r.items[0].unitPriceCents, 199);
+    });
+
+    test('Pfand mit zwei Markern am Ende: "0,25 A X"', () {
+      // Bon B-Variante: PFAND mit Markern 'A X' (statt '*').
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'VOLVIC NATURELL 1,19 A',
+        'PFAND 0,25 EURO  0,25 A X',
+        'Summe 1,44',
+      ]);
+      expect(r.items, hasLength(2));
+      expect(r.items[1].totalCents, 25);
+      expect(r.items[1].name.toLowerCase(), contains('pfand'));
+    });
+
   });
 }

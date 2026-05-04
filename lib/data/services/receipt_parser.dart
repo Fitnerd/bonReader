@@ -46,8 +46,12 @@ class ReceiptParser {
   /// Mengenzeile: `2 X 1,99`, `2 Stk x 1,59`, `1 x 4,15 EUR`. Erlaubt
   /// optionale Einheits-Buchstaben zwischen Zahl und x. Tolerant gegen
   /// fuehrenden OCR-Schmutz wie `.2 Stk x 1,59`.
+  /// Mengenzeile: `2 X 1,99`, `2 Stk x 1,59`, `1 x 4,15 EUR`, oder
+  /// Dezimal-Menge fuer kg-Ware: `1,558 kg x 2,49 EUR/kg`.
+  /// Erlaubt optionale Einheits-Buchstaben zwischen Zahl und x.
+  /// Tolerant gegen fuehrenden OCR-Schmutz wie `.2 Stk x 1,59`.
   static final RegExp _quantityLine = RegExp(
-    r'^[\s.,;:_\-]*(\d+)\s*(?:[A-Za-z]+\s*)?[xX*]\s*(\d{1,3}\s*[,.]\s*\d{2})',
+    r'^[\s.,;:_\-]*(\d+(?:\s*[,.]\s*\d+)?)\s*(?:[A-Za-z]+\s*)?[xX*]\s*(\d{1,3}\s*[,.]\s*\d{2})',
   );
 
   /// Pfand-/Leergut-Zeile.
@@ -204,7 +208,7 @@ class ReceiptParser {
       // Name folgt auf naechster Zeile).
       final qMatch = _quantityLine.firstMatch(raw);
       if (qMatch != null) {
-        final qty = int.tryParse(qMatch.group(1)!) ?? 1;
+        final qty = _parseQuantity(qMatch.group(1)!);
         final unit = _priceToCents(qMatch.group(2)!);
 
         // Hat die Zeile nach dem Mengen-Match noch einen separaten
@@ -217,7 +221,7 @@ class ReceiptParser {
           // aus der naechsten textuellen Zeile gefuellt (siehe unten).
           items.add(ExpenseItemDraft(
             name: '',
-            quantity: qty.toDouble(),
+            quantity: qty,
             unitPriceCents: unit,
             totalCents: tailPrice,
           ));
@@ -230,7 +234,7 @@ class ReceiptParser {
           final last = items.last;
           items[items.length - 1] = ExpenseItemDraft(
             name: last.name,
-            quantity: qty.toDouble(),
+            quantity: qty,
             unitPriceCents: unit,
             totalCents: last.totalCents,
           );
@@ -362,5 +366,12 @@ class ReceiptParser {
     final cents = _priceToCents(s);
     if (cents == null) return null;
     return negative ? -cents : cents;
+  }
+
+  /// Parst die Mengen-Angabe einer Mengenzeile. Akzeptiert ganze Zahlen
+  /// (`2`) und Dezimal-Mengen (`1,558` oder `1.558` fuer kg-Ware).
+  static double _parseQuantity(String raw) {
+    var s = raw.replaceAll(' ', '').replaceAll(',', '.');
+    return double.tryParse(s) ?? 1.0;
   }
 }

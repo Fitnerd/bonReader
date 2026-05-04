@@ -52,7 +52,11 @@ class MlKitReceiptOcrService implements ReceiptOcrService {
     final heights = <double>[for (final l in all) l.bbox.height];
     heights.sort();
     final medianHeight = heights[heights.length ~/ 2];
-    final yTol = (medianHeight * 0.6).clamp(8.0, 30.0);
+    // Y-Toleranz: zwei OCR-Lines gehoeren in dieselbe Bon-Zeile, wenn
+    // ihre Top-Y-Differenz unter `medianHeight * 1.0` liegt. Bei dichten
+    // Bons mit kleinem Zeilenabstand braucht das eine grosszuegige Tol,
+    // damit die Preis-Spalte nicht in eine eigene 'Reihe' faellt.
+    final yTol = (medianHeight * 1.0).clamp(10.0, 40.0);
 
     // Schritt 3: nach Y (top) sortieren.
     all.sort((a, b) => a.bbox.top.compareTo(b.bbox.top));
