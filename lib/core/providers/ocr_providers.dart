@@ -8,8 +8,7 @@ import '../../data/services/tesseract_receipt_ocr_service.dart';
 import '../../presentation/providers/settings_state.dart';
 
 /// OCR-Service. Schaltet zur Laufzeit zwischen ML Kit und Tesseract
-/// um, basierend auf der Settings-Auswahl. Wenn der Settings-Provider
-/// noch laedt oder einen Fehler hat, faellt er auf ML Kit zurueck.
+/// um, basierend auf der Settings-Auswahl.
 final receiptOcrServiceProvider = Provider<ReceiptOcrService>((ref) {
   final asyncEngine = ref.watch(ocrEngineProvider);
   final engine = asyncEngine.maybeWhen(
@@ -31,11 +30,20 @@ final imagePreprocessorProvider = Provider<ImagePreprocessor>((ref) {
   return const DefaultImagePreprocessor();
 });
 
-/// Foto-Aufnahme inkl. Vorverarbeitung. Reihenfolge: zuerst Picker,
-/// dann Preprocessor (Decorator).
+/// Foto-Aufnahme inkl. Vorverarbeitung.
+///
+/// WICHTIG: Bei Tesseract schalten wir die Vorverarbeitung AUS - die
+/// JPG-Re-Kompression + Schaerfung verschlechtert die Tesseract-
+/// Erkennung signifikant. ML Kit profitiert weiter davon.
 final photoCaptureServiceProvider = Provider<PhotoCaptureService>((ref) {
+  final asyncEngine = ref.watch(ocrEngineProvider);
+  final engine = asyncEngine.maybeWhen(
+    data: (e) => e,
+    orElse: () => 'mlkit',
+  );
   return PreprocessingPhotoCaptureService(
     delegate: ImagePickerPhotoCaptureService(),
     preprocessor: ref.read(imagePreprocessorProvider),
+    enabled: engine != 'tesseract',
   );
 });

@@ -21,14 +21,15 @@ import 'receipt_ocr_service.dart';
 class TesseractReceiptOcrService implements ReceiptOcrService {
   const TesseractReceiptOcrService({
     this.language = 'deu',
-    this.psm = 6,
+    this.psm = 4,
   });
 
   /// Sprachcode entsprechend `<lang>.traineddata` im Asset-Ordner.
   final String language;
 
-  /// Page Segmentation Mode. 6 = "Assume a single uniform block of
-  /// text" - empirisch gut fuer Kassenbons.
+  /// Page Segmentation Mode. 4 = "Assume a single column of text of
+  /// variable sizes" - passt zu Bon-Layouts mit Name-links/Preis-rechts.
+  /// 6 = "single uniform block" merged Spalten zu schlecht.
   final int psm;
 
   @override
