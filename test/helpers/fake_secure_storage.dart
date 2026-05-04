@@ -44,4 +44,29 @@ class FakeSecureStorageService implements SecureStorageService {
 
   @override
   Future<int> readAutoLogoutMinutes() async {
-    final raw
+    final raw = _store[AppConstants.secureKeyAutoLogoutMin];
+    final v = int.tryParse(raw ?? '');
+    if (v == null) return AppConstants.defaultAutoLogoutMinutes;
+    if (v < AppConstants.minAutoLogoutMinutes) {
+      return AppConstants.minAutoLogoutMinutes;
+    }
+    if (v > AppConstants.maxAutoLogoutMinutes) {
+      return AppConstants.maxAutoLogoutMinutes;
+    }
+    return v;
+  }
+
+  @override
+  Future<void> writeAutoLogoutMinutes(int minutes) async {
+    final clamped = minutes.clamp(
+      AppConstants.minAutoLogoutMinutes,
+      AppConstants.maxAutoLogoutMinutes,
+    );
+    _store[AppConstants.secureKeyAutoLogoutMin] = clamped.toString();
+  }
+
+  @override
+  Future<void> wipeAll() async {
+    _store.clear();
+  }
+}

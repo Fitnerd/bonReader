@@ -39,4 +39,55 @@ void main() {
     // die Annahme „leeres Geraet" ist Vorbedingung.
     expect(find.text('Willkommen bei ${AppConstants.appName}'), findsOneWidget);
 
-    // Passwort eingeben
+    // Passwort eingeben (zweimal) und „Account anlegen".
+    final passwordFields = find.byType(TextField);
+    expect(passwordFields, findsNWidgets(2));
+    await tester.enterText(passwordFields.at(0), 'testpasswort1');
+    await tester.enterText(passwordFields.at(1), 'testpasswort1');
+    await tester.tap(find.text('Account anlegen'));
+    await tester.pumpAndSettle(const Duration(seconds: 5));
+
+    // Jetzt sollten wir auf dem Dashboard sein.
+    expect(find.text(AppConstants.appName), findsWidgets);
+    expect(find.text('Bon scannen'), findsWidgets);
+
+    // Drawer oeffnen, „Budgets" antippen.
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Budgets').last);
+    await tester.pumpAndSettle();
+
+    // Erste Kategorie bekommt 100,00 € Budget.
+    final budgetField = find.byType(TextField).first;
+    await tester.enterText(budgetField, '100,00');
+    await tester.tap(find.text('Budgets speichern'));
+    await tester.pumpAndSettle(const Duration(seconds: 1));
+
+    // Zurueck zum Dashboard.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Bon scannen wuerde Camera oeffnen – stattdessen erfassen wir manuell
+    // ueber Drawer → Ausgaben → FAB „Neu".
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ausgaben').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Neu'));
+    await tester.pumpAndSettle();
+
+    // Haendler + Betrag eingeben.
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Test-Markt');
+    // Felder: 0=Haendler, 1=Gesamtbetrag (wenn keine Positionen)
+    await tester.enterText(fields.at(1), '15,00');
+    await tester.tap(find.text('Ausgabe anlegen'));
+    await tester.pumpAndSettle(const Duration(seconds: 1));
+
+    // Zurueck zum Dashboard pruefen wir, dass Restbudget = 85,00 ist
+    // (oder zumindest nicht 100,00).
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('85'), findsWidgets);
+  }, skip: false);
+}

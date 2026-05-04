@@ -63,4 +63,33 @@ class SecureStorageService {
   //
   // Streng genommen kein „Geheimnis". Wir benutzen Secure Storage
   // trotzdem, um keinen zweiten Persistenz-Mechanismus einzufuehren.
-  // ────────────────────────────────────────────�
+  // ────────────────────────────────────────────────────────────────
+  Future<int> readAutoLogoutMinutes() async {
+    final raw = await _storage.read(key: AppConstants.secureKeyAutoLogoutMin);
+    final v = int.tryParse(raw ?? '');
+    if (v == null) return AppConstants.defaultAutoLogoutMinutes;
+    if (v < AppConstants.minAutoLogoutMinutes) {
+      return AppConstants.minAutoLogoutMinutes;
+    }
+    if (v > AppConstants.maxAutoLogoutMinutes) {
+      return AppConstants.maxAutoLogoutMinutes;
+    }
+    return v;
+  }
+
+  Future<void> writeAutoLogoutMinutes(int minutes) {
+    final clamped = minutes.clamp(
+      AppConstants.minAutoLogoutMinutes,
+      AppConstants.maxAutoLogoutMinutes,
+    );
+    return _storage.write(
+      key: AppConstants.secureKeyAutoLogoutMin,
+      value: clamped.toString(),
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Komplettes Wipe (z. B. beim "Account zurücksetzen")
+  // ────────────────────────────────────────────────────────────────
+  Future<void> wipeAll() => _storage.deleteAll();
+}

@@ -63,4 +63,25 @@ class _AutoLogoutListenerState extends ConsumerState<AutoLogoutListener>
   @override
   Widget build(BuildContext context) {
     // Einstellung beobachten – beim Aendern Timer neu setzen.
-    ref.listen<AsyncValue<int>>(autoLogoutMinutesProvider, (prev
+    ref.listen<AsyncValue<int>>(autoLogoutMinutesProvider, (prev, next) {
+      final m = next.valueOrNull;
+      if (m != null && m != _currentMinutes) {
+        _currentMinutes = m;
+        _resetTimer();
+      }
+    });
+    final initial = ref.read(autoLogoutMinutesProvider).valueOrNull;
+    if (initial != null && initial != _currentMinutes) {
+      _currentMinutes = initial;
+      _resetTimer();
+    }
+
+    return Listener(
+      // Jede Touch-Bewegung im Auth-Bereich resettet den Timer.
+      onPointerDown: (_) => _resetTimer(),
+      onPointerMove: (_) => _resetTimer(),
+      behavior: HitTestBehavior.translucent,
+      child: widget.child,
+    );
+  }
+}
