@@ -28,8 +28,9 @@ dependencies:
   # Sicheres Speichern (Android Keystore / iOS Keychain)
   flutter_secure_storage: ^9.2.2
 
-  # Passwort-Hashing (Argon2id)
-  dargon2_flutter: ^3.2.0
+  # Passwort-Hashing (Argon2id) - pure Dart, keine nativen Bindings,
+  # damit Plattformwechsel und Tests einfach bleiben.
+  pointycastle: ^3.9.0
 
   # Biometrische Authentifizierung
   local_auth: ^2.3.0
