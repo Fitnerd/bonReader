@@ -57,7 +57,7 @@ class ReceiptParser {
   /// Mengenzeile: `2 X 1,99`, `2 Stk x 1,59`, `2 stk * 0,99`. Erlaubt
   /// optionale Einheits-Buchstaben (Stk/St/k g/g) zwischen Zahl und x.
   static final RegExp _quantityLine = RegExp(
-    r'^(\d+)\s*(?:[A-Za-z]+\s*)?[xX*]\s*(\d{1,3}[,.]\d{2})',
+    r'^(\d+)\s*(?:[A-Za-z]+\s*)?[xX*]\s*(\d{1,3}\s*[,.]\s*\d{2})',
   );
 
   /// Zeilen, die wir nicht als Position zaehlen.

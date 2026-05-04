@@ -109,8 +109,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _items.fold<int>(0, (sum, i) => sum + (i.totalCents ?? 0));
 
   int? get _effectiveTotalCents {
+    // Manuelle Eingabe hat Vorrang. Wenn das Feld leer ist UND Positionen
+    // existieren, faellt es auf die Item-Summe zurueck.
+    final manual = CurrencyFormatter.parseToCents(_totalCtrl.text);
+    if (manual != null && manual > 0) return manual;
     if (_hasItems) return _itemsTotalCents;
-    return CurrencyFormatter.parseToCents(_totalCtrl.text);
+    return null;
   }
 
   Future<void> _pickDate() async {
@@ -276,6 +280,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 ),
                 const SizedBox(height: 16),
                 _SectionHeader(theme: theme, label: 'Betrag'),
+                // Live-Summe aus Positionen (nur wenn welche existieren)
                 if (_hasItems)
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -298,28 +303,37 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         ),
                       ],
                     ),
-                  )
-                else
-                  TextFormField(
-                    controller: _totalCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Gesamtbetrag',
-                      suffixText: '€',
-                      hintText: '0,00',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                    validator: (v) {
-                      if (_hasItems) return null;
-                      final c = CurrencyFormatter.parseToCents(v ?? '');
-                      if (c == null || c <= 0) {
-                        return 'Bitte einen Betrag > 0 eingeben';
-                      }
-                      return null;
-                    },
                   ),
+                if (_hasItems) const SizedBox(height: 8),
+                // Gesamtbetrag IMMER editierbar. Bei OCR-Vorbefuellung zeigt
+                // er den vom Bon erkannten Total; der Nutzer kann ihn ueber-
+                // schreiben oder auf 'leer' setzen, dann wird die Item-Summe
+                // genommen.
+                TextFormField(
+                  controller: _totalCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: _hasItems
+                        ? 'Gesamtbetrag (ueberschreibt Positionen-Summe)'
+                        : 'Gesamtbetrag',
+                    suffixText: '€',
+                    hintText: '0,00',
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  validator: (v) {
+                    final manual = CurrencyFormatter.parseToCents(v ?? '');
+                    // Wenn Items da sind, akzeptieren wir leer (-> items sum)
+                    if (_hasItems && (v == null || v.trim().isEmpty)) {
+                      return null;
+                    }
+                    if (manual == null || manual <= 0) {
+                      return 'Bitte einen Betrag > 0 eingeben';
+                    }
+                    return null;
+                  },
+                ),
                 const SizedBox(height: 16),
                 _SectionHeader(
                   theme: theme,
