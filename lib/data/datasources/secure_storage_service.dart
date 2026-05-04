@@ -89,28 +89,6 @@ class SecureStorageService {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // OCR-Engine-Auswahl
-  //
-  // Erlaubte Werte: 'mlkit' (Default) oder 'tesseract'. Default
-  // greift, wenn der Key nicht existiert oder einen unbekannten
-  // Wert hat - so bleibt das Verhalten stabil, falls wir spaeter
-  // Engines umbenennen oder entfernen.
-  // ────────────────────────────────────────────────────────────────
-  Future<String> readOcrEngine() async {
-    final raw = await _storage.read(key: AppConstants.secureKeyOcrEngine);
-    if (raw == 'tesseract' || raw == 'mlkit') return raw!;
-    return 'mlkit';
-  }
-
-  Future<void> writeOcrEngine(String engine) {
-    final v = (engine == 'tesseract') ? 'tesseract' : 'mlkit';
-    return _storage.write(
-      key: AppConstants.secureKeyOcrEngine,
-      value: v,
-    );
-  }
-
-  // ────────────────────────────────────────────────────────────────
   // Komplettes Wipe (z. B. beim "Account zurücksetzen")
   // ────────────────────────────────────────────────────────────────
   Future<void> wipeAll() => _storage.deleteAll();

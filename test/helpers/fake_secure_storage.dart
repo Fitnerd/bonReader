@@ -66,19 +66,6 @@ class FakeSecureStorageService implements SecureStorageService {
   }
 
   @override
-  Future<String> readOcrEngine() async {
-    final raw = _store[AppConstants.secureKeyOcrEngine];
-    if (raw == 'tesseract' || raw == 'mlkit') return raw!;
-    return 'mlkit';
-  }
-
-  @override
-  Future<void> writeOcrEngine(String engine) async {
-    final v = (engine == 'tesseract') ? 'tesseract' : 'mlkit';
-    _store[AppConstants.secureKeyOcrEngine] = v;
-  }
-
-  @override
   Future<void> wipeAll() async {
     _store.clear();
   }

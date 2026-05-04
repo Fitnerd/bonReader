@@ -82,5 +82,3 @@ app.*.map.json
 *.secret
 secrets.dart
 
-# Tesseract-Sprachdaten (gross, sprachenspezifisch, manuell ablegen)
-assets/tessdata/*.traineddata

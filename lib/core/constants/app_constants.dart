@@ -39,7 +39,6 @@ class AppConstants {
   static const String secureKeyAuthSalt = 'bonbudget.auth.salt';
   static const String secureKeyBiometricEnabled = 'bonbudget.auth.biometric';
   static const String secureKeyAutoLogoutMin = 'bonbudget.auth.autologout.min';
-  static const String secureKeyOcrEngine = 'bonbudget.ocr.engine';
 
   /// Datenbankname (wird im App-internen Documents-Ordner gespeichert).
   static const String databaseFileName = 'bonbudget.db';
