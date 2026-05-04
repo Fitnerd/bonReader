@@ -47,6 +47,9 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _showChangePasswordSheet(context, ref),
           ),
           const SizedBox(height: 24),
+          _SectionTitle(label: 'Bon-Erkennung', theme: theme),
+          const _OcrEngineTile(),
+          const SizedBox(height: 24),
           _SectionTitle(label: 'Daten', theme: theme),
           ListTile(
             leading: Icon(
@@ -484,6 +487,45 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
               : const Text('Endgueltig loeschen'),
         ),
       ],
+    );
+  }
+}
+
+
+class _OcrEngineTile extends ConsumerWidget {
+  const _OcrEngineTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncEngine = ref.watch(ocrEngineProvider);
+    return asyncEngine.when(
+      loading: () => const ListTile(
+        leading: Icon(Icons.text_snippet_outlined),
+        title: Text('OCR-Engine'),
+        subtitle: Text('Lade...'),
+      ),
+      error: (e, _) => ListTile(
+        leading: const Icon(Icons.text_snippet_outlined),
+        title: const Text('OCR-Engine'),
+        subtitle: Text('Fehler: $e'),
+      ),
+      data: (engine) {
+        final isTesseract = engine == 'tesseract';
+        return SwitchListTile(
+          secondary: const Icon(Icons.text_snippet_outlined),
+          title: const Text('Tesseract statt ML Kit nutzen'),
+          subtitle: Text(
+            isTesseract
+                ? 'Tesseract: langsamer, manchmal besser bei zerknitterten Bons. '
+                  'Braucht assets/tessdata/deu.traineddata.'
+                : 'ML Kit (Default): schnell, on-device, ohne Extra-Setup.',
+          ),
+          value: isTesseract,
+          onChanged: (v) {
+            ref.read(ocrEngineProvider.notifier).set(v ? 'tesseract' : 'mlkit');
+          },
+        );
+      },
     );
   }
 }

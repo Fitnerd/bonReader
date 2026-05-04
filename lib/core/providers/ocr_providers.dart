@@ -4,9 +4,23 @@ import '../../data/services/image_preprocessor.dart';
 import '../../data/services/photo_capture_service.dart';
 import '../../data/services/preprocessing_photo_capture_service.dart';
 import '../../data/services/receipt_ocr_service.dart';
+import '../../data/services/tesseract_receipt_ocr_service.dart';
+import '../../presentation/providers/settings_state.dart';
 
-/// Provider fuer OCR-Service. Wird beim Test ueberschrieben mit einem Fake.
+/// OCR-Service. Schaltet zur Laufzeit zwischen ML Kit und Tesseract
+/// um, basierend auf der Settings-Auswahl. Wenn der Settings-Provider
+/// noch laedt oder einen Fehler hat, faellt er auf ML Kit zurueck.
 final receiptOcrServiceProvider = Provider<ReceiptOcrService>((ref) {
+  final asyncEngine = ref.watch(ocrEngineProvider);
+  final engine = asyncEngine.maybeWhen(
+    data: (e) => e,
+    orElse: () => 'mlkit',
+  );
+  if (engine == 'tesseract') {
+    final svc = TesseractReceiptOcrService();
+    ref.onDispose(svc.dispose);
+    return svc;
+  }
   final svc = MlKitReceiptOcrService();
   ref.onDispose(svc.dispose);
   return svc;

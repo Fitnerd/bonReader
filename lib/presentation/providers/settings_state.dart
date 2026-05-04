@@ -52,3 +52,25 @@ final autoLogoutSuppressionProvider =
     NotifierProvider<AutoLogoutSuppressionNotifier, int>(
   AutoLogoutSuppressionNotifier.new,
 );
+
+/// OCR-Engine-Auswahl. 'mlkit' (Default) oder 'tesseract'.
+/// Persistiert im Secure Storage.
+class OcrEngineNotifier extends AsyncNotifier<String> {
+  @override
+  Future<String> build() async {
+    final storage = ref.watch(secureStorageProvider);
+    return storage.readOcrEngine();
+  }
+
+  Future<void> set(String engine) async {
+    final v = (engine == 'tesseract') ? 'tesseract' : 'mlkit';
+    final storage = ref.read(secureStorageProvider);
+    await storage.writeOcrEngine(v);
+    state = AsyncValue<String>.data(v);
+  }
+}
+
+final ocrEngineProvider =
+    AsyncNotifierProvider<OcrEngineNotifier, String>(
+  OcrEngineNotifier.new,
+);

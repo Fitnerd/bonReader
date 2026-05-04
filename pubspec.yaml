@@ -46,6 +46,13 @@ dependencies:
   # unabhaengig testbar.
   image: ^4.5.3
 
+  # Tesseract OCR (alternative Engine).
+  flutter_tesseract_ocr: ^0.4.27
+
+  # Tesseract OCR als alternative Engine zu ML Kit. Ueber Settings
+  # umschaltbar. Sprachdaten muessen manuell als Asset eingebunden
+  # werden (assets/tessdata/deu.traineddata) - siehe README dort.
+
   # Diagramme
   fl_chart: ^0.68.0
 
@@ -82,5 +89,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # assets:
-  #   - assets/images/
+  assets:
+    - assets/tessdata/
