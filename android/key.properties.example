@@ -1,0 +1,17 @@
+# ============================================================
+# Signing-Konfiguration für den Release-Build
+# ============================================================
+# 1. Kopiere diese Datei als  key.properties  (ohne .example)
+# 2. Erstelle einen Keystore mit:
+#      keytool -genkey -v \
+#        -keystore bonreader-release.jks \
+#        -keyalg RSA -keysize 2048 -validity 10000 \
+#        -alias bonreader
+# 3. Trage die Werte unten ein.
+# 4. key.properties und *.jks NIEMALS committen!
+# ============================================================
+
+storePassword=DEIN_STORE_PASSWORT
+keyPassword=DEIN_KEY_PASSWORT
+keyAlias=bonreader
+storeFile=../bonreader-release.jks
