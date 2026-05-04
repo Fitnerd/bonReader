@@ -40,6 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
+    _passwordCtrl.clear();
     _passwordCtrl.dispose();
     super.dispose();
   }

@@ -270,6 +270,9 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
 
   @override
   void dispose() {
+    _oldCtrl.clear();
+    _newCtrl.clear();
+    _confirmCtrl.clear();
     _oldCtrl.dispose();
     _newCtrl.dispose();
     _confirmCtrl.dispose();
@@ -393,6 +396,7 @@ class _ResetAccountDialogState extends ConsumerState<_ResetAccountDialog> {
 
   @override
   void dispose() {
+    _passwordCtrl.clear();
     _passwordCtrl.dispose();
     super.dispose();
   }
