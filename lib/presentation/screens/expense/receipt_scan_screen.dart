@@ -65,6 +65,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
       final ocrResult = await ocr.recognize(image);
       final parsed = ReceiptParser.parse(ocrResult.lines);
+      print('OCR LINES: ${ocrResult.lines}');
 
       // Foto loeschen, BEVOR wir weiter navigieren – das Bild war nur
       // fuer die OCR noetig.
@@ -155,9 +156,9 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Das Bild bleibt auf deinem Geraet. OCR laeuft '
-                      'on-device. Nach der Auswertung wird das Foto sofort '
-                      'geloescht.',
+                      'Das Bild bleibt auf deinem Geraet. Es wird lokal '
+                      'kontrastoptimiert, dann laeuft die OCR on-device. '
+                      'Nach der Auswertung wird das Foto sofort geloescht.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
