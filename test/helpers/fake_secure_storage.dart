@@ -65,6 +65,57 @@ class FakeSecureStorageService implements SecureStorageService {
     _store[AppConstants.secureKeyAutoLogoutMin] = clamped.toString();
   }
 
+  // ── Brute-Force-Schutz ──────────────────────────────────────────
+
+  @override
+  Future<int> readFailedAttempts() async {
+    final raw = _store[AppConstants.secureKeyFailedAttempts];
+    return int.tryParse(raw ?? '') ?? 0;
+  }
+
+  @override
+  Future<void> writeFailedAttempts(int count) async {
+    _store[AppConstants.secureKeyFailedAttempts] = count.toString();
+  }
+
+  @override
+  Future<DateTime?> readCooldownUntil() async {
+    final raw = _store[AppConstants.secureKeyCooldownUntil];
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  @override
+  Future<void> writeCooldownUntil(DateTime? until) async {
+    if (until == null) {
+      _store.remove(AppConstants.secureKeyCooldownUntil);
+    } else {
+      _store[AppConstants.secureKeyCooldownUntil] = until.toIso8601String();
+    }
+  }
+
+  @override
+  Future<void> clearLoginAttempts() async {
+    _store.remove(AppConstants.secureKeyFailedAttempts);
+    _store.remove(AppConstants.secureKeyCooldownUntil);
+  }
+
+  // ── Letzter Passwort-Login ────────────────────────────────────
+
+  @override
+  Future<DateTime?> readLastPasswordLogin() async {
+    final raw = _store[AppConstants.secureKeyLastPasswordLogin];
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  @override
+  Future<void> writeLastPasswordLogin(DateTime time) async {
+    _store[AppConstants.secureKeyLastPasswordLogin] = time.toIso8601String();
+  }
+
+  // ── Wipe ──────────────────────────────────────────────────────
+
   @override
   Future<void> wipeAll() async {
     _store.clear();
