@@ -37,15 +37,15 @@ class StatsScreen extends ConsumerWidget {
             for (final c in categories) c.id: c,
           };
           final trend = ref.watch(monthlyTotalsProvider);
-          final mom = ref.watch(monthOverMonthProvider);
+          final mom = ref.watch(periodOverPeriodProvider);
           final dailyAvg = ref.watch(dailyAverageCentsProvider);
-          final top = ref.watch(topCategoriesInSelectedMonthProvider);
-          final spent = ref.watch(totalSpentInSelectedMonthProvider);
+          final top = ref.watch(topCategoriesInSelectedRangeProvider);
+          final spent = ref.watch(totalSpentInSelectedRangeProvider);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: <Widget>[
-              _MonthOverMonthCard(mom: mom, dailyAvgCents: dailyAvg, theme: theme),
+              _PeriodOverPeriodCard(mom: mom, dailyAvgCents: dailyAvg, theme: theme),
               const SizedBox(height: 16),
               _SectionHeader(label: 'Verlauf der letzten 12 Monate', theme: theme),
               SizedBox(
@@ -58,11 +58,11 @@ class StatsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               _SectionHeader(
-                label: 'Top-Kategorien diesen Monat',
+                label: 'Top-Kategorien',
                 theme: theme,
               ),
               if (top.isEmpty || spent == 0)
-                _empty(theme, 'Noch keine Ausgaben in diesem Monat.')
+                _empty(theme, 'Noch keine Ausgaben im gewaehlten Zeitraum.')
               else
                 SizedBox(
                   height: 240,
@@ -126,14 +126,14 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _MonthOverMonthCard extends StatelessWidget {
-  const _MonthOverMonthCard({
+class _PeriodOverPeriodCard extends StatelessWidget {
+  const _PeriodOverPeriodCard({
     required this.mom,
     required this.dailyAvgCents,
     required this.theme,
   });
 
-  final MonthOverMonth mom;
+  final PeriodOverPeriod mom;
   final int dailyAvgCents;
   final ThemeData theme;
 
@@ -156,7 +156,7 @@ class _MonthOverMonthCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Diesen Monat',
+                    'Aktueller Zeitraum',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -196,7 +196,7 @@ class _MonthOverMonthCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Vormonat: ${CurrencyFormatter.formatCents(mom.previousCents)}',
+                    'Vorperiode: ${CurrencyFormatter.formatCents(mom.previousCents)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -490,7 +490,7 @@ class _CategoryVsBudget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cats = ref.watch(categoriesProvider).valueOrNull ?? const <Category>[];
-    final byCat = ref.watch(spentByCategoryInSelectedMonthProvider);
+    final byCat = ref.watch(spentByCategoryInSelectedRangeProvider);
     final visible = cats.where((c) => !c.isHidden).toList();
     if (visible.isEmpty) {
       return Padding(

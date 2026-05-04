@@ -11,6 +11,7 @@ import '../../providers/auth_state.dart';
 import '../../providers/budgets_state.dart';
 import '../../providers/categories_state.dart';
 import '../../providers/expenses_state.dart';
+import '../../widgets/range_picker_sheet.dart';
 import '../budget/budget_screen.dart';
 import '../categories/categories_screen.dart';
 import '../expense/expense_form_screen.dart';
@@ -32,7 +33,8 @@ class DashboardScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final asyncCats = ref.watch(categoriesProvider);
     final asyncExpenses = ref.watch(expensesProvider);
-    final selectedMonth = ref.watch(selectedMonthProvider);
+    final selectedRange = ref.watch(selectedDateRangeProvider);
+    final selectedRangeLabel = ref.watch(selectedDateRangeLabelProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -49,8 +51,8 @@ class DashboardScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
-            tooltip: 'Monat waehlen',
-            onPressed: () => _pickMonth(context, ref, selectedMonth),
+            tooltip: 'Zeitraum waehlen',
+            onPressed: () => _pickRange(context, ref, selectedRange),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
@@ -77,16 +79,16 @@ class DashboardScreen extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Fehler: $e')),
           data: (_) {
             final totalBudget = ref.watch(totalBudgetCentsProvider);
-            final spent = ref.watch(totalSpentInSelectedMonthProvider);
-            final byCat = ref.watch(spentByCategoryInSelectedMonthProvider);
-            final monthExpenses = ref.watch(expensesInSelectedMonthProvider);
+            final spent = ref.watch(totalSpentInSelectedRangeProvider);
+            final byCat = ref.watch(spentByCategoryInSelectedRangeProvider);
+            final monthExpenses = ref.watch(expensesInSelectedRangeProvider);
             final visible = categories.where((c) => !c.isHidden).toList();
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: <Widget>[
                 _BudgetRingCard(
-                  month: selectedMonth,
+                  rangeLabel: selectedRangeLabel,
                   totalBudgetCents: totalBudget,
                   spentCents: spent,
                   theme: theme,
@@ -168,43 +170,28 @@ class DashboardScreen extends ConsumerWidget {
     return null;
   }
 
-  Future<void> _pickMonth(
+  Future<void> _pickRange(
     BuildContext context,
     WidgetRef ref,
-    DateTime current,
+    DateRange current,
   ) async {
-    final picked = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-      initialDate: current,
-      helpText: 'Beliebigen Tag im gewuenschten Monat waehlen',
-    );
-    if (picked != null) {
-      ref.read(selectedMonthProvider.notifier).state =
-          DateTime(picked.year, picked.month);
-    }
+    await showRangePickerSheet(context, ref, current);
   }
 }
 
 /// Kreis-Diagramm fuer das Restbudget.
 class _BudgetRingCard extends StatelessWidget {
   const _BudgetRingCard({
-    required this.month,
+    required this.rangeLabel,
     required this.totalBudgetCents,
     required this.spentCents,
     required this.theme,
   });
 
-  final DateTime month;
+  final String rangeLabel;
   final int totalBudgetCents;
   final int spentCents;
   final ThemeData theme;
-
-  static const _monthNames = <String>[
-    'Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni',
-    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +242,7 @@ class _BudgetRingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    '${_monthNames[month.month - 1]} ${month.year}',
+                    rangeLabel,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

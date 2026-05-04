@@ -47,6 +47,13 @@ class _AutoLogoutListenerState extends ConsumerState<AutoLogoutListener>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
+      // Wenn aktuell etwas legitim die App in den Hintergrund schickt
+      // (Kamera, Foto-Galerie, Biometrie-Prompt, OS-System-Dialog),
+      // ueberspringen wir den Auto-Logout. Sonst landet der Nutzer beim
+      // Zurueckkommen ploetzlich auf dem Login-Screen, obwohl er nur ein
+      // Foto gemacht hat.
+      final suppressed = ref.read(autoLogoutSuppressionProvider) > 0;
+      if (suppressed) return;
       _logout();
     }
   }

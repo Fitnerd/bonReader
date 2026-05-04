@@ -108,7 +108,7 @@ void main() {
       expect(list, isEmpty);
     });
 
-    test('expensesInSelectedMonthProvider filtert nach Monatsgrenze', () async {
+    test('expensesInSelectedRangeProvider filtert nach Monatsgrenze', () async {
       final notifier = container.read(expensesProvider.notifier);
       // Mai 2026
       await notifier.addExpense(ExpenseDraft(
@@ -133,17 +133,18 @@ void main() {
       ));
 
       // Mai auswaehlen
-      container.read(selectedMonthProvider.notifier).state = DateTime(2026, 5);
+      container.read(selectedDateRangeProvider.notifier).state =
+          DateRange.calendarMonth(DateTime(2026, 5));
       await container.read(expensesProvider.future);
 
-      final mai = container.read(expensesInSelectedMonthProvider);
+      final mai = container.read(expensesInSelectedRangeProvider);
       expect(mai, hasLength(1));
       expect(mai.first.merchant, 'Mai');
 
-      expect(container.read(totalSpentInSelectedMonthProvider), 1000);
+      expect(container.read(totalSpentInSelectedRangeProvider), 1000);
     });
 
-    test('spentByCategoryInSelectedMonthProvider summiert pro Kategorie',
+    test('spentByCategoryInSelectedRangeProvider summiert pro Kategorie',
         () async {
       final notifier = container.read(expensesProvider.notifier);
       await notifier.addExpense(ExpenseDraft(
@@ -165,10 +166,11 @@ void main() {
         occurredAt: DateTime(2026, 5, 12),
       ));
 
-      container.read(selectedMonthProvider.notifier).state = DateTime(2026, 5);
+      container.read(selectedDateRangeProvider.notifier).state =
+          DateRange.calendarMonth(DateTime(2026, 5));
       await container.read(expensesProvider.future);
 
-      final byCat = container.read(spentByCategoryInSelectedMonthProvider);
+      final byCat = container.read(spentByCategoryInSelectedRangeProvider);
       expect(byCat[catFood], 4000);
       expect(byCat[catFuel], 6500);
     });

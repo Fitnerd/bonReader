@@ -59,11 +59,18 @@ class ReceiptParser {
   /// Wichtig: Reihenfolge zaehlt nicht, Gross-/Kleinschreibung egal.
   static const List<String> _ignoreSubstrings = <String>[
     'summe', 'gesamt', 'total', 'zwischensumme', 'mwst', 'ust',
-    'rueckgeld', 'rückgeld', 'gegeben', 'bar', 'ec-karte', 'visa', 'mastercard',
+    'rueckgeld', 'rückgeld', 'gegeben', 'geg.', 'bar',
+    // Bezahlmethoden / EC-Cash-Spuren
+    'ec-karte', 'ec-cash', 'eccash', 'visa', 'mastercard',
+    'kartenzahlung', 'contactless', 'girocard', 'paypal',
+    // Bon-Metadaten
     'kunden-nr', 'kundennr', 'beleg-nr', 'belegnr', 'bon-nr', 'bonnr',
+    'trace-nr', 'tracenr', 'terminal-id', 'terminalid', 'pos-info',
+    'as-zeit', 'kundenbeleg', 'haendlerbeleg', 'haendler-beleg',
     'datum', 'uhrzeit', 'kasse', 'kassierer', 'filiale', 'ihre',
     'tse', 'qr-code', 'serien-nr', 'transaktion', 'pfand zurueck',
-    'steuer', 'netto', 'brutto', 'eur',
+    'steuer', 'netto', 'brutto', 'eur', 'betrag',
+    'zahlung erfolgt', 'zahlung erfolgreich',
   ];
 
   static const List<String> _totalKeywords = <String>[
@@ -165,30 +172,35 @@ class ReceiptParser {
   // ─────────────────────────────────────────── Positionen
   static List<ExpenseItemDraft> _detectItems(List<String> lines) {
     final items = <ExpenseItemDraft>[];
-    String? pendingQuantityName;
-    int? pendingQuantity;
-    int? pendingUnitPrice;
 
     for (var i = 0; i < lines.length; i++) {
       final raw = lines[i];
       final lower = raw.toLowerCase();
 
-      // Mengenzeile: `2 X 1,99` → merken, Position folgt evtl. in naechster Zeile
+      // Mengenzeile: `2 X 1,99`. Bei deutschen Bons (Rewe, Edeka, Aldi, ...)
+      // steht diese Zeile typischerweise NACH dem totalisierten Item, z. B.:
+      //   WAGNER PICCOLINI            6,98 B
+      //     2 Stk x    3,49
+      // Die 6,98 ist der Gesamtbetrag, 2 × 3,49 die Aufschluesselung.
+      // Wir aktualisieren daher das zuletzt erfasste Item retroaktiv.
       final qMatch = _quantityLine.firstMatch(raw);
       if (qMatch != null) {
-        pendingQuantity = int.tryParse(qMatch.group(1)!);
-        pendingUnitPrice =
-            _priceToCents(qMatch.group(2)!);
-        pendingQuantityName = null;
+        if (items.isNotEmpty) {
+          final last = items.last;
+          final qty = int.tryParse(qMatch.group(1)!) ?? 1;
+          final unit = _priceToCents(qMatch.group(2)!) ?? last.totalCents;
+          items[items.length - 1] = ExpenseItemDraft(
+            name: last.name,
+            quantity: qty.toDouble(),
+            unitPriceCents: unit,
+            totalCents: last.totalCents,
+          );
+        }
         continue;
       }
 
       // Ignorieren?
-      if (_ignoreSubstrings.any(lower.contains)) {
-        pendingQuantity = null;
-        pendingUnitPrice = null;
-        continue;
-      }
+      if (_ignoreSubstrings.any(lower.contains)) continue;
 
       // Datum allein → ueberspringen
       if (_datePattern.hasMatch(lower) &&
@@ -198,11 +210,7 @@ class ReceiptParser {
 
       // Preis am Ende?
       final cents = _priceFromLine(raw);
-      if (cents == null) {
-        // koennte ein Positionsname VOR der Mengen-/Preiszeile sein
-        pendingQuantityName = raw;
-        continue;
-      }
+      if (cents == null) continue;
 
       // Plausibilitaet: hohe Preise (> 1000 €) sind selten echt
       if (cents > 100000) continue;
@@ -211,22 +219,14 @@ class ReceiptParser {
       var name = raw.replaceFirst(_priceAtEnd, '').trim();
       // Trailing Steuerklassen-Marker (A/B/*) entfernen
       name = name.replaceAll(RegExp(r'[\*\s]+[ABab]\s*$'), '').trim();
-      if (name.isEmpty) name = pendingQuantityName ?? '';
       if (name.isEmpty) continue;
-
-      final qty = pendingQuantity ?? 1;
-      final unit = pendingUnitPrice ?? cents;
 
       items.add(ExpenseItemDraft(
         name: name,
-        quantity: qty.toDouble(),
-        unitPriceCents: unit,
+        quantity: 1,
+        unitPriceCents: cents,
         totalCents: cents,
       ));
-
-      pendingQuantity = null;
-      pendingUnitPrice = null;
-      pendingQuantityName = null;
     }
     return items;
   }

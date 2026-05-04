@@ -8,6 +8,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../data/services/photo_capture_service.dart';
 import '../../../data/services/receipt_parser.dart';
 import '../../providers/categories_state.dart';
+import '../../providers/settings_state.dart';
 import 'expense_form_screen.dart';
 
 /// Bildschirm fuer „Bon scannen" → OCR → vorbefuelltes Formular.
@@ -40,6 +41,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
     final capture = ref.read(photoCaptureServiceProvider);
     final ocr = ref.read(receiptOcrServiceProvider);
+
+    // Auto-Logout unterdruecken, solange Kamera/Galerie offen sind
+    // (laeuft in separater Activity, App geht in 'paused' - sonst wuerde
+    // der Nutzer beim Zurueckkommen ausgeloggt).
+    final suppression = ref.read(autoLogoutSuppressionProvider.notifier);
+    suppression.acquire();
 
     File? image;
     try {
@@ -106,6 +113,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         );
       }
     } finally {
+      suppression.release();
       // Sicherheits-Reinigung: falls Bild noch existiert.
       if (image != null) {
         await capture.deleteSafe(image);

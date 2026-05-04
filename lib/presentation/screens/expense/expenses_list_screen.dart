@@ -6,6 +6,7 @@ import '../../../domain/entities/category.dart';
 import '../../../domain/entities/expense.dart';
 import '../../providers/categories_state.dart';
 import '../../providers/expenses_state.dart';
+import '../../widgets/range_picker_sheet.dart';
 import 'expense_form_screen.dart';
 import 'receipt_scan_screen.dart';
 
@@ -18,9 +19,10 @@ class ExpensesListScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final asyncExpenses = ref.watch(expensesProvider);
     final asyncCats = ref.watch(categoriesProvider);
-    final monthExpenses = ref.watch(expensesInSelectedMonthProvider);
-    final totalCents = ref.watch(totalSpentInSelectedMonthProvider);
-    final selectedMonth = ref.watch(selectedMonthProvider);
+    final monthExpenses = ref.watch(expensesInSelectedRangeProvider);
+    final totalCents = ref.watch(totalSpentInSelectedRangeProvider);
+    final selectedRange = ref.watch(selectedDateRangeProvider);
+    final selectedRangeLabel = ref.watch(selectedDateRangeLabelProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -37,8 +39,8 @@ class ExpensesListScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
-            tooltip: 'Monat waehlen',
-            onPressed: () => _pickMonth(context, ref, selectedMonth),
+            tooltip: 'Zeitraum waehlen',
+            onPressed: () => _pickRange(context, ref, selectedRange),
           ),
         ],
       ),
@@ -64,8 +66,8 @@ class ExpensesListScreen extends ConsumerWidget {
 
             return Column(
               children: <Widget>[
-                _MonthHeader(
-                  month: selectedMonth,
+                _RangeHeader(
+                  rangeLabel: selectedRangeLabel,
                   totalCents: totalCents,
                   count: monthExpenses.length,
                   theme: theme,
@@ -104,22 +106,12 @@ class ExpensesListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _pickMonth(
+  Future<void> _pickRange(
     BuildContext context,
     WidgetRef ref,
-    DateTime current,
+    DateRange current,
   ) async {
-    final picked = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-      initialDate: current,
-      helpText: 'Beliebigen Tag im gewuenschten Monat waehlen',
-    );
-    if (picked != null) {
-      ref.read(selectedMonthProvider.notifier).state =
-          DateTime(picked.year, picked.month);
-    }
+    await showRangePickerSheet(context, ref, current);
   }
 
   Future<void> _confirmDelete(
@@ -154,23 +146,18 @@ class ExpensesListScreen extends ConsumerWidget {
   }
 }
 
-class _MonthHeader extends StatelessWidget {
-  const _MonthHeader({
-    required this.month,
+class _RangeHeader extends StatelessWidget {
+  const _RangeHeader({
+    required this.rangeLabel,
     required this.totalCents,
     required this.count,
     required this.theme,
   });
 
-  final DateTime month;
+  final String rangeLabel;
   final int totalCents;
   final int count;
   final ThemeData theme;
-
-  static const _monthNames = <String>[
-    'Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni',
-    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +169,7 @@ class _MonthHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            '${_monthNames[month.month - 1]} ${month.year}',
+            rangeLabel,
             style: theme.textTheme.titleSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

@@ -9,8 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../helpers/in_memory_database.dart';
 
 /// Tests fuer die abgeleiteten Statistik-Provider:
-/// monthlyTotalsProvider, monthOverMonthProvider, dailyAverageCentsProvider,
-/// topCategoriesInSelectedMonthProvider.
+/// monthlyTotalsProvider, periodOverPeriodProvider, dailyAverageCentsProvider,
+/// topCategoriesInSelectedRangeProvider.
 void main() {
   group('Stats-Provider', () {
     late ProviderContainer container;
@@ -41,7 +41,8 @@ void main() {
       addTearDown(container.dispose);
 
       // Monat fixieren auf Mai 2026 fuer reproduzierbare Tests.
-      container.read(selectedMonthProvider.notifier).state = DateTime(2026, 5);
+      container.read(selectedDateRangeProvider.notifier).state =
+          DateRange.calendarMonth(DateTime(2026, 5));
     });
 
     Future<void> add({
@@ -85,35 +86,35 @@ void main() {
       expect(byMonth[DateTime(2026, 3)], 0);
     });
 
-    test('monthOverMonthProvider berechnet Differenz und %', () async {
+    test('periodOverPeriodProvider berechnet Differenz und %', () async {
       await add(catId: catFood, cents: 8000, when: DateTime(2026, 5, 1));
       await add(catId: catFood, cents: 4000, when: DateTime(2026, 4, 10));
       await container.read(expensesProvider.future);
 
-      final mom = container.read(monthOverMonthProvider);
+      final mom = container.read(periodOverPeriodProvider);
       expect(mom.currentCents, 8000);
       expect(mom.previousCents, 4000);
       expect(mom.diffCents, 4000);
       expect(mom.diffPercent, 100.0);
     });
 
-    test('monthOverMonthProvider gibt diffPercent=null bei prev=0', () async {
+    test('periodOverPeriodProvider gibt diffPercent=null bei prev=0', () async {
       await add(catId: catFood, cents: 8000, when: DateTime(2026, 5, 1));
       await container.read(expensesProvider.future);
 
-      final mom = container.read(monthOverMonthProvider);
+      final mom = container.read(periodOverPeriodProvider);
       expect(mom.previousCents, 0);
       expect(mom.diffPercent, isNull);
       expect(mom.diffCents, 8000);
     });
 
-    test('topCategoriesInSelectedMonthProvider sortiert absteigend', () async {
+    test('topCategoriesInSelectedRangeProvider sortiert absteigend', () async {
       await add(catId: catFood, cents: 1500, when: DateTime(2026, 5, 5));
       await add(catId: catFuel, cents: 6000, when: DateTime(2026, 5, 12));
       await add(catId: catLeisure, cents: 4000, when: DateTime(2026, 5, 18));
       await container.read(expensesProvider.future);
 
-      final top = container.read(topCategoriesInSelectedMonthProvider);
+      final top = container.read(topCategoriesInSelectedRangeProvider);
       expect(top.map((c) => c.categoryId), <String>[catFuel, catLeisure, catFood]);
       expect(top.first.totalCents, 6000);
     });
@@ -123,8 +124,8 @@ void main() {
       // Mai hat 31 Tage → 3100 Cent / 31 = 100 Cent pro Tag
       // ABER der ausgewaehlte Monat (Mai 2026) ist evtl. der aktuelle Monat
       // im Test. Wir setzen daher explizit auf einen Vormonat (April 2026).
-      container.read(selectedMonthProvider.notifier).state =
-          DateTime(2026, 4); // April hat 30 Tage
+      container.read(selectedDateRangeProvider.notifier).state =
+          DateRange.calendarMonth(DateTime(2026, 4)); // April hat 30 Tage
       await add(catId: catFood, cents: 3000, when: DateTime(2026, 4, 10));
       await container.read(expensesProvider.future);
 

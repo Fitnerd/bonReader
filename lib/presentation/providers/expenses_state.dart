@@ -8,7 +8,7 @@ import '../../domain/repositories/expense_repository.dart';
 ///
 /// Haelt absichtlich die volle Liste vor (lokal, kein Server, keine Pagination
 /// bei haushaltsueblichen Mengen relevant). Abgeleitete Provider filtern dann
-/// nach Monat / Kategorie / etc.
+/// nach Datums-Range / Kategorie / etc.
 class ExpensesNotifier extends AsyncNotifier<List<Expense>> {
   @override
   Future<List<Expense>> build() async {
@@ -42,41 +42,134 @@ final expensesProvider =
   ExpensesNotifier.new,
 );
 
-/// Aktuell ausgewaehlter Monat fuer Dashboard / Statistik.
-/// Default: aktueller Monat (auf den Monatsanfang normiert).
-final selectedMonthProvider = StateProvider<DateTime>((ref) {
-  final now = DateTime.now();
-  return DateTime(now.year, now.month);
-});
+// ─────────────────────────────────────────────────────────────────────
+// Datums-Range
+// ─────────────────────────────────────────────────────────────────────
 
-/// Inklusive Monatsstart, exklusive Anfang Folgemonat.
-({DateTime from, DateTime toExclusive}) _monthRange(DateTime month) {
-  final from = DateTime(month.year, month.month);
-  final toExclusive = DateTime(month.year, month.month + 1);
-  return (from: from, toExclusive: toExclusive);
+/// Halbgeschlossenes Intervall `[from, toExclusive)`. Fuer Kalender-
+/// Filter eindeutig (kein Off-by-one am Tagesende).
+class DateRange {
+  const DateRange({required this.from, required this.toExclusive})
+      : assert(from != toExclusive || from == toExclusive);
+
+  /// Kompletter Kalendermonat (1. 0:00 bis 1. des Folgemonats 0:00).
+  factory DateRange.calendarMonth(DateTime any) => DateRange(
+        from: DateTime(any.year, any.month),
+        toExclusive: DateTime(any.year, any.month + 1),
+      );
+
+  /// Range fuer einen einzelnen Tag (00:00 bis naechster Tag 00:00).
+  factory DateRange.singleDay(DateTime day) => DateRange(
+        from: DateTime(day.year, day.month, day.day),
+        toExclusive: DateTime(day.year, day.month, day.day + 1),
+      );
+
+  /// Range aus inklusivem Start- und End-Tag (z. B. aus
+  /// `showDateRangePicker`, das `DateTimeRange.start/end` inklusiv liefert).
+  factory DateRange.fromInclusive(DateTime startInclusive, DateTime endInclusive) =>
+      DateRange(
+        from: DateTime(startInclusive.year, startInclusive.month, startInclusive.day),
+        toExclusive: DateTime(endInclusive.year, endInclusive.month, endInclusive.day + 1),
+      );
+
+  final DateTime from;
+  final DateTime toExclusive;
+
+  bool contains(DateTime t) => !t.isBefore(from) && t.isBefore(toExclusive);
+
+  /// Anzahl Tage in der Range (inkl. from, exkl. toExclusive).
+  int get days {
+    final diffMs = toExclusive.difference(from).inMilliseconds;
+    return (diffMs / Duration.millisecondsPerDay).round();
+  }
+
+  /// True, wenn die Range exakt einem Kalendermonat entspricht.
+  bool get isCalendarMonth =>
+      from.day == 1 &&
+      toExclusive.day == 1 &&
+      ((toExclusive.year - from.year) * 12 + (toExclusive.month - from.month)) == 1;
+
+  /// Ein einziger Tag?
+  bool get isSingleDay {
+    final next = DateTime(from.year, from.month, from.day + 1);
+    return toExclusive == next;
+  }
+
+  /// Verschiebt die Range um die eigene Laenge nach hinten - fuer
+  /// "Vorperiode"-Vergleiche.
+  DateRange shiftedBackByLength() {
+    final length = toExclusive.difference(from);
+    return DateRange(
+      from: from.subtract(length),
+      toExclusive: from,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DateRange &&
+          other.from == from &&
+          other.toExclusive == toExclusive;
+
+  @override
+  int get hashCode => Object.hash(from, toExclusive);
 }
 
-/// Ausgaben des ausgewaehlten Monats, neueste zuerst.
-final expensesInSelectedMonthProvider = Provider<List<Expense>>((ref) {
-  final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
-  final month = ref.watch(selectedMonthProvider);
-  final r = _monthRange(month);
-  return all
-      .where((e) =>
-          !e.occurredAt.isBefore(r.from) && e.occurredAt.isBefore(r.toExclusive))
-      .toList(growable: false);
+/// Aktuell ausgewaehlter Bereich. Default: aktueller Kalendermonat.
+final selectedDateRangeProvider = StateProvider<DateRange>((ref) {
+  return DateRange.calendarMonth(DateTime.now());
 });
 
-/// Summe der Ausgaben im ausgewaehlten Monat (in Cent).
-final totalSpentInSelectedMonthProvider = Provider<int>((ref) {
-  final list = ref.watch(expensesInSelectedMonthProvider);
+/// Lesbares Label fuer die aktuelle Range:
+/// * Kalendermonat → "Mai 2026"
+/// * Einzeltag     → "15.05.2026"
+/// * sonst         → "01.05.–15.05.2026"
+final selectedDateRangeLabelProvider = Provider<String>((ref) {
+  final r = ref.watch(selectedDateRangeProvider);
+  const months = <String>[
+    'Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni',
+    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+  ];
+  if (r.isCalendarMonth) {
+    return '\${months[r.from.month - 1]} \${r.from.year}';
+  }
+  String d2(int n) => n.toString().padLeft(2, '0');
+  if (r.isSingleDay) {
+    return '\${d2(r.from.day)}.\${d2(r.from.month)}.\${r.from.year}';
+  }
+  // Letzter inklusiver Tag = toExclusive - 1 day
+  final lastInclusive = r.toExclusive.subtract(const Duration(days: 1));
+  // Wenn gleiches Jahr → Jahr nur einmal, sonst zweimal
+  if (r.from.year == lastInclusive.year) {
+    return '\${d2(r.from.day)}.\${d2(r.from.month)}.–'
+        '\${d2(lastInclusive.day)}.\${d2(lastInclusive.month)}.\${lastInclusive.year}';
+  }
+  return '\${d2(r.from.day)}.\${d2(r.from.month)}.\${r.from.year}–'
+      '\${d2(lastInclusive.day)}.\${d2(lastInclusive.month)}.\${lastInclusive.year}';
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Range-basierte Provider
+// ─────────────────────────────────────────────────────────────────────
+
+/// Ausgaben in der ausgewaehlten Range, neueste zuerst.
+final expensesInSelectedRangeProvider = Provider<List<Expense>>((ref) {
+  final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
+  final r = ref.watch(selectedDateRangeProvider);
+  return all.where((e) => r.contains(e.occurredAt)).toList(growable: false);
+});
+
+/// Summe der Ausgaben in der ausgewaehlten Range (Cent).
+final totalSpentInSelectedRangeProvider = Provider<int>((ref) {
+  final list = ref.watch(expensesInSelectedRangeProvider);
   return list.fold<int>(0, (sum, e) => sum + e.totalCents);
 });
 
-/// Summe pro Kategorie im ausgewaehlten Monat.
-final spentByCategoryInSelectedMonthProvider =
+/// Summe pro Kategorie in der ausgewaehlten Range.
+final spentByCategoryInSelectedRangeProvider =
     Provider<Map<String, int>>((ref) {
-  final list = ref.watch(expensesInSelectedMonthProvider);
+  final list = ref.watch(expensesInSelectedRangeProvider);
   final map = <String, int>{};
   for (final e in list) {
     map[e.categoryId] = (map[e.categoryId] ?? 0) + e.totalCents;
@@ -84,35 +177,65 @@ final spentByCategoryInSelectedMonthProvider =
   return map;
 });
 
-/// Tagesdurchschnitt im ausgewaehlten Monat.
-/// Bezugsgroesse: Anzahl der bisher vergangenen Tage im Monat
-/// (im aktuellen Monat) bzw. Tage des Monats (in vergangenen Monaten).
+/// Tagesdurchschnitt in der Range.
+/// * Wenn die Range in der Zukunft endet (z. B. aktueller Monat ist
+///   gewaehlt), teilen wir nur durch die bisher vergangenen Tage.
+/// * Sonst durch die volle Range-Laenge.
 final dailyAverageCentsProvider = Provider<int>((ref) {
-  final spent = ref.watch(totalSpentInSelectedMonthProvider);
-  final month = ref.watch(selectedMonthProvider);
+  final spent = ref.watch(totalSpentInSelectedRangeProvider);
+  final r = ref.watch(selectedDateRangeProvider);
   final now = DateTime.now();
-  final isCurrent = month.year == now.year && month.month == now.month;
-  final lastDayOfMonth = DateTime(month.year, month.month + 1, 0).day;
-  final divisor = isCurrent ? now.day : lastDayOfMonth;
-  if (divisor <= 0) return 0;
-  return (spent / divisor).round();
+  final today = DateTime(now.year, now.month, now.day);
+  final fullDays = r.days;
+  // Wenn Range schon komplett vergangen → durch volle Laenge teilen.
+  if (!today.isBefore(r.toExclusive)) {
+    if (fullDays <= 0) return 0;
+    return (spent / fullDays).round();
+  }
+  // Wenn Range erst noch beginnt → 0.
+  if (today.isBefore(r.from)) return 0;
+  // Sonst: Range laeuft gerade. Teiler = Tage seit from einschliesslich heute.
+  final elapsed = today.difference(r.from).inDays + 1;
+  if (elapsed <= 0) return 0;
+  return (spent / elapsed).round();
 });
 
-/// Eintrag in der Trendliste „letzte N Monate".
+/// Top-Kategorien in der ausgewaehlten Range (sortiert, mit cents).
+class CategorySpend {
+  const CategorySpend({required this.categoryId, required this.totalCents});
+  final String categoryId;
+  final int totalCents;
+}
+
+final topCategoriesInSelectedRangeProvider =
+    Provider<List<CategorySpend>>((ref) {
+  final byCat = ref.watch(spentByCategoryInSelectedRangeProvider);
+  final list = byCat.entries
+      .map((e) => CategorySpend(categoryId: e.key, totalCents: e.value))
+      .toList()
+    ..sort((a, b) => b.totalCents.compareTo(a.totalCents));
+  return list;
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Trend-Diagramme: 12 Monate zurueck (anchor = letzter Monat der Range)
+// ─────────────────────────────────────────────────────────────────────
+
 class MonthlyTotal {
   const MonthlyTotal({required this.month, required this.totalCents});
   final DateTime month;
   final int totalCents;
 }
 
-/// Liste der letzten 12 Monate mit Summe pro Monat,
-/// chronologisch (aelteste zuerst).
+/// Liste der letzten 12 Kalendermonate mit Summe pro Monat,
+/// chronologisch (aelteste zuerst). Anker ist der Monat von [from].
 final monthlyTotalsProvider = Provider<List<MonthlyTotal>>((ref) {
   final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
-  final selected = ref.watch(selectedMonthProvider);
+  final r = ref.watch(selectedDateRangeProvider);
+  final anchor = DateTime(r.from.year, r.from.month);
   final months = <DateTime>[
     for (int i = 11; i >= 0; i--)
-      DateTime(selected.year, selected.month - i),
+      DateTime(anchor.year, anchor.month - i),
   ];
   return <MonthlyTotal>[
     for (final m in months)
@@ -126,9 +249,14 @@ final monthlyTotalsProvider = Provider<List<MonthlyTotal>>((ref) {
   ];
 });
 
-/// Vergleich: aktueller vs. Vormonat.
-class MonthOverMonth {
-  const MonthOverMonth({
+// ─────────────────────────────────────────────────────────────────────
+// Vorperioden-Vergleich
+// ─────────────────────────────────────────────────────────────────────
+
+/// Vergleich: aktuelle Range vs. unmittelbar davor liegende Range
+/// gleicher Laenge.
+class PeriodOverPeriod {
+  const PeriodOverPeriod({
     required this.currentCents,
     required this.previousCents,
   });
@@ -138,44 +266,56 @@ class MonthOverMonth {
 
   int get diffCents => currentCents - previousCents;
 
-  /// Prozentuale Differenz (Vormonat = Basis). Null, wenn Basis == 0.
+  /// Prozentuale Differenz (Vorperiode = Basis). Null, wenn Basis == 0.
   double? get diffPercent {
     if (previousCents == 0) return null;
     return (diffCents / previousCents) * 100;
   }
 }
 
-final monthOverMonthProvider = Provider<MonthOverMonth>((ref) {
+final periodOverPeriodProvider = Provider<PeriodOverPeriod>((ref) {
   final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
-  final selected = ref.watch(selectedMonthProvider);
-  final prev = DateTime(selected.year, selected.month - 1);
+  final current = ref.watch(selectedDateRangeProvider);
+  final previous = current.shiftedBackByLength();
 
-  int sumFor(DateTime m) {
-    return all
-        .where((e) =>
-            e.occurredAt.year == m.year && e.occurredAt.month == m.month)
-        .fold<int>(0, (s, e) => s + e.totalCents);
-  }
+  int sumIn(DateRange r) =>
+      all.where((e) => r.contains(e.occurredAt)).fold<int>(0, (s, e) => s + e.totalCents);
 
-  return MonthOverMonth(
-    currentCents: sumFor(selected),
-    previousCents: sumFor(prev),
+  return PeriodOverPeriod(
+    currentCents: sumIn(current),
+    previousCents: sumIn(previous),
   );
 });
 
-/// Top-Kategorien im ausgewaehlten Monat (sortiert, mit cents).
-class CategorySpend {
-  const CategorySpend({required this.categoryId, required this.totalCents});
-  final String categoryId;
-  final int totalCents;
-}
+// ─────────────────────────────────────────────────────────────────────
+// Backward-Compat-Aliase. Die alten "Monat"-Provider zeigen jetzt auf
+// die Range-Provider; UI/Tests sollten auf die Range-Namen umsteigen,
+// die Alias-Provider machen den Migrationspfad weicher.
+// ─────────────────────────────────────────────────────────────────────
 
-final topCategoriesInSelectedMonthProvider =
-    Provider<List<CategorySpend>>((ref) {
-  final byCat = ref.watch(spentByCategoryInSelectedMonthProvider);
-  final list = byCat.entries
-      .map((e) => CategorySpend(categoryId: e.key, totalCents: e.value))
-      .toList()
-    ..sort((a, b) => b.totalCents.compareTo(a.totalCents));
-  return list;
+@Deprecated('Use selectedDateRangeProvider')
+final selectedMonthProvider = StateProvider<DateTime>((ref) {
+  // Wir spiegeln den 1. des Range-Monats. Schreibzugriffe auf diesen
+  // Alias gehen verloren - bewusst, damit niemand parallele Quellen
+  // bedient.
+  final r = ref.watch(selectedDateRangeProvider);
+  return DateTime(r.from.year, r.from.month);
 });
+
+@Deprecated('Use expensesInSelectedRangeProvider')
+final expensesInSelectedMonthProvider = expensesInSelectedRangeProvider;
+
+@Deprecated('Use totalSpentInSelectedRangeProvider')
+final totalSpentInSelectedMonthProvider = totalSpentInSelectedRangeProvider;
+
+@Deprecated('Use spentByCategoryInSelectedRangeProvider')
+final spentByCategoryInSelectedMonthProvider = spentByCategoryInSelectedRangeProvider;
+
+@Deprecated('Use topCategoriesInSelectedRangeProvider')
+final topCategoriesInSelectedMonthProvider = topCategoriesInSelectedRangeProvider;
+
+@Deprecated('Use periodOverPeriodProvider')
+typedef MonthOverMonth = PeriodOverPeriod;
+
+@Deprecated('Use periodOverPeriodProvider')
+final monthOverMonthProvider = periodOverPeriodProvider;

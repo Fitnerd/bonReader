@@ -104,17 +104,36 @@ void main() {
       expect(r.items[1].totalCents, 129);
     });
 
-    test('erkennt Mengen-Zeile vor Position', () {
+    test('Mengen-Zeile NACH Position aktualisiert qty/unit retroaktiv', () {
+      // Deutsches Rewe/Edeka-Layout: erst Position mit Gesamtbetrag,
+      // dann '2 Stk x 1,99' als Detail-Aufschluesselung.
       final r = ReceiptParser.parse(<String>[
         'REWE',
-        '2 X 1,99',
         'Brot 3,98 A',
+        '2 X 1,99',
         'Summe 3,98',
       ]);
       expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'Brot');
       expect(r.items[0].quantity, 2);
       expect(r.items[0].unitPriceCents, 199);
       expect(r.items[0].totalCents, 398);
+    });
+
+    test('Geg.EC-Cash-Zeile wird nicht als Position dupliziert', () {
+      final r = ReceiptParser.parse(<String>[
+        'REWE',
+        'Brot 1,99',
+        'SUMME EUR 1,99',
+        'Geg. EC-Cash EUR 1,99',
+        'Kartenzahlung',
+        'Contactless',
+        'girocard',
+      ]);
+      // Nur Brot, NICHT Geg. EC-Cash erneut
+      expect(r.items, hasLength(1));
+      expect(r.items[0].name, 'Brot');
+      expect(r.totalCents, 199);
     });
 
     test('ignoriert Steuer-/MwSt-/Rueckgeld-Zeilen', () {
