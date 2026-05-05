@@ -29,9 +29,10 @@ void main() {
         totalCents: 1234,
         merchant: 'Rewe',
         occurredAt: DateTime(2026, 5, 1, 12),
-        items: [
+        items: const [
           ExpenseItemDraft(name: 'Brot', totalCents: 199, unitPriceCents: 199),
-          ExpenseItemDraft(name: 'Milch', totalCents: 1035, unitPriceCents: 1035),
+          ExpenseItemDraft(
+              name: 'Milch', totalCents: 1035, unitPriceCents: 1035),
         ],
       ));
       expect(e.totalCents, 1234);
@@ -110,7 +111,7 @@ void main() {
         totalCents: 100,
         merchant: '',
         occurredAt: DateTime(2026, 5, 1),
-        items: [ExpenseItemDraft(name: 'X', totalCents: 100)],
+        items: const [ExpenseItemDraft(name: 'X', totalCents: 100)],
       ));
       await repo.delete(e.id);
       expect(await repo.getById(e.id), isNull);
@@ -206,7 +207,7 @@ void main() {
         totalCents: 200,
         merchant: '',
         occurredAt: DateTime(2026, 5, 1),
-        items: [
+        items: const [
           ExpenseItemDraft(name: 'Alt1', totalCents: 100),
           ExpenseItemDraft(name: 'Alt2', totalCents: 100),
         ],

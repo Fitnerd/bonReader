@@ -3,3 +3,8 @@ template-arb-file: app_de.arb
 output-localization-file: app_localizations.dart
 output-class: AppLocalizations
 preferred-supported-locales: ["de"]
+# Echte Files unter lib/l10n/ statt synthetic flutter_gen-Package.
+# Damit funktionieren `package:bonbudget/l10n/app_localizations.dart`-
+# Imports auch in `flutter test`/`flutter analyze`, ohne dass vorher
+# `flutter gen-l10n` laufen muss.
+synthetic-package: false

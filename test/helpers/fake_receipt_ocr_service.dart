@@ -20,7 +20,7 @@ class FakeReceiptOcrService implements ReceiptOcrService {
   FakeReceiptOcrService({this.lines = const <String>[], this.shouldThrow});
 
   final List<String> lines;
-  Object? shouldThrow;
+  Exception? shouldThrow;
   int recognizeCallCount = 0;
   File? lastImage;
 

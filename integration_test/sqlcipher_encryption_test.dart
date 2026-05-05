@@ -43,7 +43,7 @@ void main() {
       onUpgrade: Migrations.onUpgrade,
     );
     await dbA.execute(
-      "INSERT INTO categories(id,name,color_value,icon_code_point,is_default,is_hidden,created_at) "
+      'INSERT INTO categories(id,name,color_value,icon_code_point,is_default,is_hidden,created_at) '
       "VALUES('c1','TestKategorieMitMarkertext',0,0,0,0,0)",
     );
     await dbA.close();

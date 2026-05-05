@@ -165,11 +165,15 @@ class ReceiptParser {
       final month = int.parse(m.group(2)!);
       final yearRaw = int.parse(m.group(3)!);
       final year = yearRaw < 100 ? 2000 + yearRaw : yearRaw;
-      try {
-        return DateTime(year, month, day);
-      } on ArgumentError {
-        // Z. B. 31.02.2026 - ungueltiges Datum, naechste Zeile probieren.
-        continue;
+      // `DateTime(year, month, day)` wirft fuer ungueltige Tage NICHT
+      // sondern rollt still um (z. B. 31.02.2026 -> 03.03.2026). Wir
+      // muessen nach dem Konstruieren pruefen, ob die Felder erhalten
+      // geblieben sind, sonst die naechste Zeile probieren.
+      final candidate = DateTime(year, month, day);
+      if (candidate.year == year &&
+          candidate.month == month &&
+          candidate.day == day) {
+        return candidate;
       }
     }
     return null;

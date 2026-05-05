@@ -1,6 +1,5 @@
 import 'package:bonbudget/app.dart';
 import 'package:bonbudget/core/constants/app_constants.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
