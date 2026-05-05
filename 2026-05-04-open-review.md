@@ -1,7 +1,8 @@
 # BonBudget – Offene Review-Punkte
 
-**Datum:** 2026-05-04
-**Stand:** Nach Biometrie-Umbau + Code-/Security-Review-Fixes + G1–G6.
+**Datum:** 2026-05-04 (zuletzt aktualisiert: 2026-05-05)
+**Stand:** Nach Biometrie-Umbau + Code-/Security-Review-Fixes + G1–G6 +
+Pagination-UI-Migration.
 Konsolidiert aus den drei alten Review-Files (Code-Review, Security-Review,
 Biometrie-Todo) — die sind ersetzt durch dieses File.
 
@@ -30,27 +31,19 @@ Was bereits erledigt ist, steht hier *nicht* mehr. Konkret abgehakt sind:
   Budget, Categories, Category-Edit, Expense-Form, Expenses-List, Receipt-Scan,
   Stats): hardcodierte Strings raus, ARB-Keys (de+en), Plurale via ICU,
   Umlaute in den neuen Strings korrekt.
+- **Pagination-UI-Migration:** `expensesProvider` ist jetzt reiner
+  Mutation-Notifier mit Versions-Counter, neuer `PagedExpensesNotifier`
+  (Page-Size 50, `loadMore()`) treibt die Listen-Screen mit
+  `ScrollController`-Trigger. Alle Aggregat-Provider (`totalSpent`,
+  `spentByCategory`, `topCategories`, `dailyAverage`, `monthlyTotals`,
+  `periodOverPeriod`) lesen aus Repo-Aggregaten (`getTotalCents`,
+  `getTotalsByCategory`) statt In-Memory-Listen. Dashboard, Stats,
+  HomePlaceholder konsumieren via `valueOrNull` mit Defaults. Tests
+  inkl. neuem `loadMore`-Pfad grün.
 
 ---
 
 ## Offen — Hoch (zeitnah)
-
-### Pagination-UI-Migration
-**Aufwand:** Mittel.
-
-Repo-Methoden `getPage`, `getPageInRange`, `getCount`, `getCountInRange`
-sind da und getestet. Aber:
-
-- `expensesProvider` lädt immer noch `repo.getAll()` (alle Ausgaben in
-  Memory). Damit ist `expensesInSelectedRangeProvider` ein In-Memory-Filter.
-- Stats- und Dashboard-Provider hängen direkt am `expensesProvider`. Sie
-  müssten umgestellt werden auf Repo-Aggregate
-  (`getTotalsByCategory`, `getTotalCents`) statt In-Memory-Aggregation.
-- `ExpensesListScreen` braucht `ScrollController`-Trigger für Nachladen.
-
-Bis zu ein paar Tausend Einträgen ist die aktuelle Lösung schnell genug.
-Wird relevant ab ~10 000 Einträgen oder wenn die App auf alten Geräten
-träge wird.
 
 ### iOS-Support
 **Aufwand:** Klein, aber Entscheidungsbedarf.
@@ -205,6 +198,5 @@ Doku dazu: `docs/2026-05-04-biometrie-migration.md`.
 2. iOS-Entscheidung treffen + ggf. Folder anlegen
 3. `flutter analyze && flutter test` grün halten nach jedem Schritt
 4. Verbleibende Repo-`!`-Casts (klein)
-5. Pagination-UI-Migration (mittel)
-6. Restliche Widget-Tests (klein)
-7. Release-Build-Signatur-Härtung (klein)
+5. Restliche Widget-Tests (klein)
+6. Release-Build-Signatur-Härtung (klein)
