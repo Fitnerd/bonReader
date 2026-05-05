@@ -43,34 +43,6 @@ Was bereits erledigt ist, steht hier *nicht* mehr. Konkret abgehakt sind:
 
 ---
 
-## Offen — Hoch (zeitnah)
-
-### iOS-Support
-**Aufwand:** Klein, aber Entscheidungsbedarf.
-
-`README.md` behauptet "Android und iOS", aber `ios/`-Ordner existiert
-nicht. Wenn iOS wirklich Ziel ist:
-
-```bash
-flutter create --platforms=ios .
-```
-
-Danach in `ios/Runner/Info.plist`:
-
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Zum Scannen deiner Bons</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>Zum Auswählen vorhandener Bon-Fotos</string>
-<key>NSFaceIDUsageDescription</key>
-<string>Um BonBudget zu entsperren</string>
-```
-
-Wenn iOS *nicht* Ziel ist: `README.md` anpassen ("Android" statt
-"Android und iOS").
-
----
-
 ## Offen — Mittel
 
 ### Verbleibende Repo-`!`-Casts
@@ -195,8 +167,7 @@ Doku dazu: `docs/2026-05-04-biometrie-migration.md`.
 ## Vorgeschlagene Reihenfolge
 
 1. `.git/index.lock` löschen (manuell, 30 Sek)
-2. iOS-Entscheidung treffen + ggf. Folder anlegen
-3. `flutter analyze && flutter test` grün halten nach jedem Schritt
-4. Verbleibende Repo-`!`-Casts (klein)
-5. Restliche Widget-Tests (klein)
-6. Release-Build-Signatur-Härtung (klein)
+2. `flutter analyze && flutter test` grün halten nach jedem Schritt
+3. Verbleibende Repo-`!`-Casts (klein)
+4. Restliche Widget-Tests (klein)
+5. Release-Build-Signatur-Härtung (klein)
