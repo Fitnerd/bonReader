@@ -254,13 +254,14 @@ class AppLocalizationsDe extends AppLocalizations {
     final intl.NumberFormat minutesNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);
     final String minutesString = minutesNumberFormat.format(minutes);
+
     String _temp0 = intl.Intl.pluralLogic(
       minutes,
       locale: localeName,
-      one: '1 Minute',
       other: '$minutesString Minuten',
+      one: '1 Minute',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -424,8 +425,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get statsDailyAverageSubtitle => 'pro Tag';
 
   @override
-  String get statsNoDataInRange =>
-      'Noch keine Ausgaben im gewählten Zeitraum.';
+  String get statsNoDataInRange => 'Noch keine Ausgaben im gewählten Zeitraum.';
 
   @override
   String get statsNoData => 'Noch keine Daten.';
@@ -493,10 +493,10 @@ class AppLocalizationsDe extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      one: '1 Ausgabe',
       other: '$count Ausgaben',
+      one: '1 Ausgabe',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -504,10 +504,10 @@ class AppLocalizationsDe extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      one: '1 Position',
       other: '$count Positionen',
+      one: '1 Position',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override

@@ -11,6 +11,9 @@ import '../../../helpers/in_memory_database.dart';
 /// Tests fuer die abgeleiteten Statistik-Provider:
 /// monthlyTotalsProvider, periodOverPeriodProvider, dailyAverageCentsProvider,
 /// topCategoriesInSelectedRangeProvider.
+///
+/// Pagination-Migration: Provider sind jetzt FutureProvider mit Repo-
+/// Aggregaten — Tests warten via `.future` auf die Aufloesung.
 void main() {
   group('Stats-Provider', () {
     late ProviderContainer container;
@@ -59,9 +62,9 @@ void main() {
           ));
     }
 
-    test('monthlyTotalsProvider liefert exakt 12 Monate, chronologisch', () async {
-      await container.read(expensesProvider.future);
-      final list = container.read(monthlyTotalsProvider);
+    test('monthlyTotalsProvider liefert exakt 12 Monate, chronologisch',
+        () async {
+      final list = await container.read(monthlyTotalsProvider.future);
       expect(list, hasLength(12));
       // chronologisch: aelteste zuerst, juengste = ausgewaehlter Monat
       expect(list.first.month, DateTime(2025, 6));
@@ -73,9 +76,8 @@ void main() {
       await add(catId: catFood, cents: 2000, when: DateTime(2026, 5, 20));
       await add(catId: catFood, cents: 5000, when: DateTime(2026, 4, 15));
       await add(catId: catFood, cents: 7000, when: DateTime(2025, 12, 24));
-      await container.read(expensesProvider.future);
 
-      final list = container.read(monthlyTotalsProvider);
+      final list = await container.read(monthlyTotalsProvider.future);
       final byMonth = <DateTime, int>{
         for (final t in list) t.month: t.totalCents,
       };
@@ -89,9 +91,8 @@ void main() {
     test('periodOverPeriodProvider berechnet Differenz und %', () async {
       await add(catId: catFood, cents: 8000, when: DateTime(2026, 5, 1));
       await add(catId: catFood, cents: 4000, when: DateTime(2026, 4, 10));
-      await container.read(expensesProvider.future);
 
-      final mom = container.read(periodOverPeriodProvider);
+      final mom = await container.read(periodOverPeriodProvider.future);
       expect(mom.currentCents, 8000);
       expect(mom.previousCents, 4000);
       expect(mom.diffCents, 4000);
@@ -100,9 +101,8 @@ void main() {
 
     test('periodOverPeriodProvider gibt diffPercent=null bei prev=0', () async {
       await add(catId: catFood, cents: 8000, when: DateTime(2026, 5, 1));
-      await container.read(expensesProvider.future);
 
-      final mom = container.read(periodOverPeriodProvider);
+      final mom = await container.read(periodOverPeriodProvider.future);
       expect(mom.previousCents, 0);
       expect(mom.diffPercent, isNull);
       expect(mom.diffCents, 8000);
@@ -112,10 +112,13 @@ void main() {
       await add(catId: catFood, cents: 1500, when: DateTime(2026, 5, 5));
       await add(catId: catFuel, cents: 6000, when: DateTime(2026, 5, 12));
       await add(catId: catLeisure, cents: 4000, when: DateTime(2026, 5, 18));
-      await container.read(expensesProvider.future);
 
-      final top = container.read(topCategoriesInSelectedRangeProvider);
-      expect(top.map((c) => c.categoryId), <String>[catFuel, catLeisure, catFood]);
+      final top =
+          await container.read(topCategoriesInSelectedRangeProvider.future);
+      expect(
+        top.map((c) => c.categoryId),
+        <String>[catFuel, catLeisure, catFood],
+      );
       expect(top.first.totalCents, 6000);
     });
 
@@ -127,9 +130,8 @@ void main() {
       container.read(selectedDateRangeProvider.notifier).state =
           DateRange.calendarMonth(DateTime(2026, 4)); // April hat 30 Tage
       await add(catId: catFood, cents: 3000, when: DateTime(2026, 4, 10));
-      await container.read(expensesProvider.future);
 
-      final avg = container.read(dailyAverageCentsProvider);
+      final avg = await container.read(dailyAverageCentsProvider.future);
       // 3000 / 30 = 100
       expect(avg, 100);
     });

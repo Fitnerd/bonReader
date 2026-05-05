@@ -23,7 +23,10 @@ class HomePlaceholderScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final totalBudget = ref.watch(totalBudgetCentsProvider);
-    final spent = ref.watch(totalSpentInSelectedRangeProvider);
+    // FutureProvider — bis das Repo-Aggregat da ist, fallen wir auf 0
+    // zurueck (in der Praxis nur ein Frame).
+    final spent =
+        ref.watch(totalSpentInSelectedRangeProvider).valueOrNull ?? 0;
     final remaining = totalBudget - spent;
 
     return Scaffold(

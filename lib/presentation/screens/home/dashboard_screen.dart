@@ -34,7 +34,7 @@ class DashboardScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final asyncCats = ref.watch(categoriesProvider);
-    final asyncExpenses = ref.watch(expensesProvider);
+    final asyncPaged = ref.watch(pagedExpensesProvider);
     final selectedRange = ref.watch(selectedDateRangeProvider);
     final selectedRangeLabel = ref.watch(selectedDateRangeLabelProvider);
 
@@ -76,15 +76,23 @@ class DashboardScreen extends ConsumerWidget {
       body: asyncCats.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(l10n.commonErrorWithDetail('$e'))),
-        data: (categories) => asyncExpenses.when(
+        data: (categories) => asyncPaged.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) =>
               Center(child: Text(l10n.commonErrorWithDetail('$e'))),
-          data: (_) {
+          data: (paged) {
             final totalBudget = ref.watch(totalBudgetCentsProvider);
-            final spent = ref.watch(totalSpentInSelectedRangeProvider);
-            final byCat = ref.watch(spentByCategoryInSelectedRangeProvider);
-            final monthExpenses = ref.watch(expensesInSelectedRangeProvider);
+            // Aggregate als FutureProvider — solange sie laden, fallen
+            // wir auf 0/leer zurueck. Bei lokaler SQLite ist das in
+            // der Praxis ein einzelner Frame.
+            final spent =
+                ref.watch(totalSpentInSelectedRangeProvider).valueOrNull ?? 0;
+            final byCat = ref
+                    .watch(spentByCategoryInSelectedRangeProvider)
+                    .valueOrNull ??
+                const <String, int>{};
+            // "Letzte 5" liest aus der ersten Page (DESC nach Datum).
+            final monthExpenses = paged.items;
             final visible = categories.where((c) => !c.isHidden).toList();
 
             return ListView(

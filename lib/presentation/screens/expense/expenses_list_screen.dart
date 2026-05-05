@@ -11,18 +11,56 @@ import '../../widgets/range_picker_sheet.dart';
 import 'expense_form_screen.dart';
 import 'receipt_scan_screen.dart';
 
-/// Liste aller Ausgaben des aktuell ausgewaehlten Monats.
-class ExpensesListScreen extends ConsumerWidget {
+/// Liste aller Ausgaben des aktuell ausgewaehlten Zeitraums.
+///
+/// Nutzt den `pagedExpensesProvider`: erste Page (`kExpensesPageSize`)
+/// kommt direkt, weitere Pages werden ueber den `ScrollController`
+/// nachgeladen, sobald sich der Nutzer dem Listenende naehert.
+class ExpensesListScreen extends ConsumerStatefulWidget {
   const ExpensesListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ExpensesListScreen> createState() =>
+      _ExpensesListScreenState();
+}
+
+class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> {
+  /// Vorlaufdistanz zum Listenende, ab der die naechste Page geladen wird.
+  /// 200 px sind ungefaehr 3-4 ListTiles — fuehlt sich nahtlos an, ohne
+  /// auf jedem Frame zu triggern.
+  static const double _loadMoreThresholdPx = 200;
+
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - _loadMoreThresholdPx) {
+      ref.read(pagedExpensesProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final asyncExpenses = ref.watch(expensesProvider);
     final asyncCats = ref.watch(categoriesProvider);
-    final monthExpenses = ref.watch(expensesInSelectedRangeProvider);
-    final totalCents = ref.watch(totalSpentInSelectedRangeProvider);
+    final asyncPaged = ref.watch(pagedExpensesProvider);
+    final asyncTotal = ref.watch(totalSpentInSelectedRangeProvider);
     final selectedRange = ref.watch(selectedDateRangeProvider);
     final selectedRangeLabel = ref.watch(selectedDateRangeLabelProvider);
 
@@ -55,10 +93,10 @@ class ExpensesListScreen extends ConsumerWidget {
         icon: const Icon(Icons.add_rounded),
         label: Text(l10n.commonNew),
       ),
-      body: asyncExpenses.when(
+      body: asyncPaged.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(l10n.commonErrorWithDetail('$e'))),
-        data: (_) => asyncCats.when(
+        data: (paged) => asyncCats.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) =>
               Center(child: Text(l10n.commonErrorWithDetail('$e'))),
@@ -66,25 +104,46 @@ class ExpensesListScreen extends ConsumerWidget {
             final byCatId = <String, Category>{
               for (final c in categories) c.id: c,
             };
+            // Total kommt aus dem Repo-Aggregat. Wenn es noch laedt
+            // fallback auf bisherige Page-Summe (visuell stabil).
+            final totalCents = asyncTotal.maybeWhen(
+              data: (v) => v,
+              orElse: () => paged.items.fold<int>(
+                0,
+                (sum, e) => sum + e.totalCents,
+              ),
+            );
 
             return Column(
               children: <Widget>[
                 _RangeHeader(
                   rangeLabel: selectedRangeLabel,
                   totalCents: totalCents,
-                  count: monthExpenses.length,
+                  count: paged.total,
                   theme: theme,
                 ),
                 const Divider(height: 1),
                 Expanded(
-                  child: monthExpenses.isEmpty
+                  child: paged.items.isEmpty
                       ? const _EmptyState()
                       : ListView.separated(
-                          itemCount: monthExpenses.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1),
+                          controller: _scrollController,
+                          // +1 fuer den Footer (Spinner / Ende-Marker)
+                          itemCount: paged.items.length + 1,
+                          separatorBuilder: (_, int i) =>
+                              i < paged.items.length - 1
+                                  ? const Divider(height: 1)
+                                  : const SizedBox.shrink(),
                           itemBuilder: (BuildContext ctx, int i) {
-                            final e = monthExpenses[i];
+                            if (i == paged.items.length) {
+                              return _ListFooter(
+                                loadingMore: paged.loadingMore,
+                                hasMore: paged.hasMore,
+                                shownCount: paged.items.length,
+                                totalCount: paged.total,
+                              );
+                            }
+                            final e = paged.items[i];
                             final cat = byCatId[e.categoryId];
                             return _ExpenseTile(
                               expense: e,
@@ -197,6 +256,44 @@ class _RangeHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ListFooter extends StatelessWidget {
+  const _ListFooter({
+    required this.loadingMore,
+    required this.hasMore,
+    required this.shownCount,
+    required this.totalCount,
+  });
+
+  final bool loadingMore;
+  final bool hasMore;
+  final int shownCount;
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    // Wenn alles geladen ist und mehr als eine Page noetig war, eine
+    // dezente "Ende"-Markierung — bei einer einzigen Page nicht noetig.
+    if (!hasMore && shownCount > 0 && totalCount > shownCount) {
+      // Sollte mit hasMore=false eigentlich nicht eintreten, aber
+      // defensiv kein Footer.
+      return const SizedBox.shrink();
+    }
+    return const SizedBox.shrink();
   }
 }
 

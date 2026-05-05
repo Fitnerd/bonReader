@@ -51,11 +51,21 @@ class StatsScreen extends ConsumerWidget {
           final byId = <String, Category>{
             for (final c in categories) c.id: c,
           };
-          final trend = ref.watch(monthlyTotalsProvider);
-          final mom = ref.watch(periodOverPeriodProvider);
-          final dailyAvg = ref.watch(dailyAverageCentsProvider);
-          final top = ref.watch(topCategoriesInSelectedRangeProvider);
-          final spent = ref.watch(totalSpentInSelectedRangeProvider);
+          // Aggregate kommen jetzt als FutureProvider aus dem Repo.
+          // Bei lokaler SQLite typischerweise binnen eines Frames da;
+          // bis dahin Fallback auf neutrale Defaults statt Spinner —
+          // sonst flackert die ganze Seite bei jedem Range-Wechsel.
+          final trend = ref.watch(monthlyTotalsProvider).valueOrNull ??
+              const <MonthlyTotal>[];
+          final mom = ref.watch(periodOverPeriodProvider).valueOrNull ??
+              const PeriodOverPeriod(currentCents: 0, previousCents: 0);
+          final dailyAvg =
+              ref.watch(dailyAverageCentsProvider).valueOrNull ?? 0;
+          final top =
+              ref.watch(topCategoriesInSelectedRangeProvider).valueOrNull ??
+                  const <CategorySpend>[];
+          final spent =
+              ref.watch(totalSpentInSelectedRangeProvider).valueOrNull ?? 0;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -518,7 +528,9 @@ class _CategoryVsBudget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final cats = ref.watch(categoriesProvider).valueOrNull ?? const <Category>[];
-    final byCat = ref.watch(spentByCategoryInSelectedRangeProvider);
+    final byCat =
+        ref.watch(spentByCategoryInSelectedRangeProvider).valueOrNull ??
+            const <String, int>{};
     final visible = cats.where((c) => !c.isHidden).toList();
     if (visible.isEmpty) {
       return Padding(

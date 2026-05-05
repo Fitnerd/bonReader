@@ -1,46 +1,50 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/data_providers.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/repositories/expense_repository.dart';
 
-/// Notifier fuer alle Ausgaben.
+/// Page-Size fuer paginiertes Nachladen der Ausgabenliste.
+const int kExpensesPageSize = 50;
+
+/// Mutation-Notifier fuer Ausgaben.
 ///
-/// Haelt absichtlich die volle Liste vor (lokal, kein Server, keine Pagination
-/// bei haushaltsueblichen Mengen relevant). Abgeleitete Provider filtern dann
-/// nach Datums-Range / Kategorie / etc.
-class ExpensesNotifier extends AsyncNotifier<List<Expense>> {
+/// Haelt **keine** Daten mehr im Speicher (vorher: `repo.getAll()`).
+/// Stattdessen ist der State eine reine Versions-Nummer, die bei jeder
+/// CRUD-Operation hochgezaehlt wird. Abgeleitete Provider (Pagination,
+/// Aggregate) beobachten diese Version und re-fetchen sich aus dem Repo.
+///
+/// Damit bleibt die App auch bei >10 000 Eintraegen fluessig — die UI
+/// laedt immer nur die sichtbare Page bzw. die SQL-Aggregate fuer den
+/// gewaehlten Zeitraum, nicht mehr die komplette Tabelle in den Speicher.
+class ExpensesNotifier extends Notifier<int> {
   @override
-  Future<List<Expense>> build() async {
-    final repo = await ref.watch(expenseRepositoryProvider.future);
-    return repo.getAll();
-  }
+  int build() => 0;
 
   Future<Expense> addExpense(ExpenseDraft draft) async {
     final repo = await ref.read(expenseRepositoryProvider.future);
     final created = await repo.create(draft);
-    ref.invalidateSelf();
+    state = state + 1;
     return created;
   }
 
   Future<Expense> updateExpense(Expense expense) async {
     final repo = await ref.read(expenseRepositoryProvider.future);
     final updated = await repo.update(expense);
-    ref.invalidateSelf();
+    state = state + 1;
     return updated;
   }
 
   Future<void> deleteExpense(String id) async {
     final repo = await ref.read(expenseRepositoryProvider.future);
     await repo.delete(id);
-    ref.invalidateSelf();
+    state = state + 1;
   }
 }
 
 final expensesProvider =
-    AsyncNotifierProvider<ExpensesNotifier, List<Expense>>(
-  ExpensesNotifier.new,
-);
+    NotifierProvider<ExpensesNotifier, int>(ExpensesNotifier.new);
 
 // ─────────────────────────────────────────────────────────────────────
 // Datums-Range
@@ -149,39 +153,150 @@ final selectedDateRangeLabelProvider = Provider<String>((ref) {
 });
 
 // ─────────────────────────────────────────────────────────────────────
-// Range-basierte Provider
+// Repo-Helper: Range → BETWEEN-kompatibles `to`
 // ─────────────────────────────────────────────────────────────────────
 
-/// Ausgaben in der ausgewaehlten Range, neueste zuerst.
-final expensesInSelectedRangeProvider = Provider<List<Expense>>((ref) {
-  final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
-  final r = ref.watch(selectedDateRangeProvider);
-  return all.where((e) => r.contains(e.occurredAt)).toList(growable: false);
-});
+/// Die Repo-Aggregat-Methoden nutzen `BETWEEN ? AND ?` (inklusiv beidseitig).
+/// `DateRange.toExclusive` ist halb-offen (Element exakt am Boundary
+/// gehoert *nicht* zur Range). Wir konvertieren beim Aufruf in den
+/// "letzten inklusiven Moment", sodass sich Aggregate exakt wie das
+/// alte In-Memory-`r.contains(t)` verhalten.
+DateTime _inclusiveTo(DateRange r) =>
+    r.toExclusive.subtract(const Duration(milliseconds: 1));
+
+// ─────────────────────────────────────────────────────────────────────
+// Pagination der Ausgabenliste (DESC nach Datum, gefiltert auf Range)
+// ─────────────────────────────────────────────────────────────────────
+
+@immutable
+class PagedExpensesState {
+  const PagedExpensesState({
+    required this.items,
+    required this.total,
+    required this.hasMore,
+    required this.loadingMore,
+  });
+
+  final List<Expense> items;
+
+  /// Gesamtzahl der Eintraege in der aktuellen Range (vom Repo geliefert).
+  final int total;
+
+  /// `true`, solange es weitere Pages zu laden gibt.
+  final bool hasMore;
+
+  /// `true`, solange `loadMore()` einen Page-Fetch laufen hat.
+  final bool loadingMore;
+
+  PagedExpensesState copyWith({
+    List<Expense>? items,
+    int? total,
+    bool? hasMore,
+    bool? loadingMore,
+  }) =>
+      PagedExpensesState(
+        items: items ?? this.items,
+        total: total ?? this.total,
+        hasMore: hasMore ?? this.hasMore,
+        loadingMore: loadingMore ?? this.loadingMore,
+      );
+
+  static const PagedExpensesState empty = PagedExpensesState(
+    items: <Expense>[],
+    total: 0,
+    hasMore: false,
+    loadingMore: false,
+  );
+}
+
+/// Notifier fuer die paginierte Ausgabenliste der ausgewaehlten Range.
+///
+/// Build laedt die erste Page (`kExpensesPageSize` Eintraege) und das
+/// Gesamt-Count via `getCountInRange`. `loadMore()` haengt die naechste
+/// Page hinten an. Der Notifier rebuildet automatisch, wenn:
+///  - die Range gewechselt wird (`selectedDateRangeProvider`)
+///  - Daten geaendert werden (CRUD im `expensesProvider` bumpt Version)
+class PagedExpensesNotifier extends AsyncNotifier<PagedExpensesState> {
+  @override
+  Future<PagedExpensesState> build() async {
+    final range = ref.watch(selectedDateRangeProvider);
+    // Re-fetch nach jeder CRUD-Mutation:
+    ref.watch(expensesProvider);
+    final repo = await ref.watch(expenseRepositoryProvider.future);
+    final to = _inclusiveTo(range);
+    final total = await repo.getCountInRange(range.from, to);
+    final items = await repo.getPageInRange(
+      from: range.from,
+      to: to,
+      offset: 0,
+      limit: kExpensesPageSize,
+    );
+    return PagedExpensesState(
+      items: items,
+      total: total,
+      hasMore: items.length < total,
+      loadingMore: false,
+    );
+  }
+
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (!current.hasMore || current.loadingMore) return;
+
+    state = AsyncData(current.copyWith(loadingMore: true));
+
+    final range = ref.read(selectedDateRangeProvider);
+    final repo = await ref.read(expenseRepositoryProvider.future);
+    final to = _inclusiveTo(range);
+    final more = await repo.getPageInRange(
+      from: range.from,
+      to: to,
+      offset: current.items.length,
+      limit: kExpensesPageSize,
+    );
+    final newItems = <Expense>[...current.items, ...more];
+    state = AsyncData(current.copyWith(
+      items: newItems,
+      hasMore: newItems.length < current.total,
+      loadingMore: false,
+    ));
+  }
+}
+
+final pagedExpensesProvider =
+    AsyncNotifierProvider<PagedExpensesNotifier, PagedExpensesState>(
+  PagedExpensesNotifier.new,
+);
+
+// ─────────────────────────────────────────────────────────────────────
+// Aggregate (alle aus dem Repo, nicht mehr aus In-Memory-Liste).
+// Hangen alle an selectedDateRangeProvider + expensesProvider (Version).
+// ─────────────────────────────────────────────────────────────────────
 
 /// Summe der Ausgaben in der ausgewaehlten Range (Cent).
-final totalSpentInSelectedRangeProvider = Provider<int>((ref) {
-  final list = ref.watch(expensesInSelectedRangeProvider);
-  return list.fold<int>(0, (sum, e) => sum + e.totalCents);
+final totalSpentInSelectedRangeProvider = FutureProvider<int>((ref) async {
+  final range = ref.watch(selectedDateRangeProvider);
+  ref.watch(expensesProvider);
+  final repo = await ref.watch(expenseRepositoryProvider.future);
+  return repo.getTotalCents(range.from, _inclusiveTo(range));
 });
 
 /// Summe pro Kategorie in der ausgewaehlten Range.
 final spentByCategoryInSelectedRangeProvider =
-    Provider<Map<String, int>>((ref) {
-  final list = ref.watch(expensesInSelectedRangeProvider);
-  final map = <String, int>{};
-  for (final e in list) {
-    map[e.categoryId] = (map[e.categoryId] ?? 0) + e.totalCents;
-  }
-  return map;
+    FutureProvider<Map<String, int>>((ref) async {
+  final range = ref.watch(selectedDateRangeProvider);
+  ref.watch(expensesProvider);
+  final repo = await ref.watch(expenseRepositoryProvider.future);
+  return repo.getTotalsByCategory(range.from, _inclusiveTo(range));
 });
 
 /// Tagesdurchschnitt in der Range.
 /// * Wenn die Range in der Zukunft endet (z. B. aktueller Monat ist
 ///   gewaehlt), teilen wir nur durch die bisher vergangenen Tage.
 /// * Sonst durch die volle Range-Laenge.
-final dailyAverageCentsProvider = Provider<int>((ref) {
-  final spent = ref.watch(totalSpentInSelectedRangeProvider);
+final dailyAverageCentsProvider = FutureProvider<int>((ref) async {
+  final spent = await ref.watch(totalSpentInSelectedRangeProvider.future);
   final r = ref.watch(selectedDateRangeProvider);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -200,6 +315,7 @@ final dailyAverageCentsProvider = Provider<int>((ref) {
 });
 
 /// Top-Kategorien in der ausgewaehlten Range (sortiert, mit cents).
+@immutable
 class CategorySpend {
   const CategorySpend({required this.categoryId, required this.totalCents});
   final String categoryId;
@@ -207,8 +323,8 @@ class CategorySpend {
 }
 
 final topCategoriesInSelectedRangeProvider =
-    Provider<List<CategorySpend>>((ref) {
-  final byCat = ref.watch(spentByCategoryInSelectedRangeProvider);
+    FutureProvider<List<CategorySpend>>((ref) async {
+  final byCat = await ref.watch(spentByCategoryInSelectedRangeProvider.future);
   final list = byCat.entries
       .map((e) => CategorySpend(categoryId: e.key, totalCents: e.value))
       .toList()
@@ -220,6 +336,7 @@ final topCategoriesInSelectedRangeProvider =
 // Trend-Diagramme: 12 Monate zurueck (anchor = letzter Monat der Range)
 // ─────────────────────────────────────────────────────────────────────
 
+@immutable
 class MonthlyTotal {
   const MonthlyTotal({required this.month, required this.totalCents});
   final DateTime month;
@@ -228,23 +345,30 @@ class MonthlyTotal {
 
 /// Liste der letzten 12 Kalendermonate mit Summe pro Monat,
 /// chronologisch (aelteste zuerst). Anker ist der Monat von [from].
-final monthlyTotalsProvider = Provider<List<MonthlyTotal>>((ref) {
-  final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
+///
+/// Implementierung: 12 SQL-Aggregate parallel (`Future.wait`). Bei
+/// lokaler SQLite uneingeschraenkt schnell, dafuer kein In-Memory-Pass
+/// mehr ueber die volle Tabelle.
+final monthlyTotalsProvider =
+    FutureProvider<List<MonthlyTotal>>((ref) async {
   final r = ref.watch(selectedDateRangeProvider);
+  ref.watch(expensesProvider);
+  final repo = await ref.watch(expenseRepositoryProvider.future);
   final anchor = DateTime(r.from.year, r.from.month);
   final months = <DateTime>[
-    for (int i = 11; i >= 0; i--)
-      DateTime(anchor.year, anchor.month - i),
+    for (int i = 11; i >= 0; i--) DateTime(anchor.year, anchor.month - i),
   ];
+  final totals = await Future.wait<int>(months.map((m) {
+    final monthStart = m;
+    final monthEndExclusive = DateTime(m.year, m.month + 1);
+    return repo.getTotalCents(
+      monthStart,
+      monthEndExclusive.subtract(const Duration(milliseconds: 1)),
+    );
+  }));
   return <MonthlyTotal>[
-    for (final m in months)
-      MonthlyTotal(
-        month: m,
-        totalCents: all
-            .where((e) =>
-                e.occurredAt.year == m.year && e.occurredAt.month == m.month)
-            .fold<int>(0, (sum, e) => sum + e.totalCents),
-      ),
+    for (int i = 0; i < months.length; i++)
+      MonthlyTotal(month: months[i], totalCents: totals[i]),
   ];
 });
 
@@ -254,6 +378,7 @@ final monthlyTotalsProvider = Provider<List<MonthlyTotal>>((ref) {
 
 /// Vergleich: aktuelle Range vs. unmittelbar davor liegende Range
 /// gleicher Laenge.
+@immutable
 class PeriodOverPeriod {
   const PeriodOverPeriod({
     required this.currentCents,
@@ -272,49 +397,19 @@ class PeriodOverPeriod {
   }
 }
 
-final periodOverPeriodProvider = Provider<PeriodOverPeriod>((ref) {
-  final all = ref.watch(expensesProvider).valueOrNull ?? const <Expense>[];
+final periodOverPeriodProvider =
+    FutureProvider<PeriodOverPeriod>((ref) async {
   final current = ref.watch(selectedDateRangeProvider);
+  ref.watch(expensesProvider);
+  final repo = await ref.watch(expenseRepositoryProvider.future);
   final previous = current.shiftedBackByLength();
 
-  int sumIn(DateRange r) =>
-      all.where((e) => r.contains(e.occurredAt)).fold<int>(0, (s, e) => s + e.totalCents);
-
+  final results = await Future.wait<int>(<Future<int>>[
+    repo.getTotalCents(current.from, _inclusiveTo(current)),
+    repo.getTotalCents(previous.from, _inclusiveTo(previous)),
+  ]);
   return PeriodOverPeriod(
-    currentCents: sumIn(current),
-    previousCents: sumIn(previous),
+    currentCents: results[0],
+    previousCents: results[1],
   );
 });
-
-// ─────────────────────────────────────────────────────────────────────
-// Backward-Compat-Aliase. Die alten "Monat"-Provider zeigen jetzt auf
-// die Range-Provider; UI/Tests sollten auf die Range-Namen umsteigen,
-// die Alias-Provider machen den Migrationspfad weicher.
-// ─────────────────────────────────────────────────────────────────────
-
-@Deprecated('Use selectedDateRangeProvider')
-final selectedMonthProvider = StateProvider<DateTime>((ref) {
-  // Wir spiegeln den 1. des Range-Monats. Schreibzugriffe auf diesen
-  // Alias gehen verloren - bewusst, damit niemand parallele Quellen
-  // bedient.
-  final r = ref.watch(selectedDateRangeProvider);
-  return DateTime(r.from.year, r.from.month);
-});
-
-@Deprecated('Use expensesInSelectedRangeProvider')
-final expensesInSelectedMonthProvider = expensesInSelectedRangeProvider;
-
-@Deprecated('Use totalSpentInSelectedRangeProvider')
-final totalSpentInSelectedMonthProvider = totalSpentInSelectedRangeProvider;
-
-@Deprecated('Use spentByCategoryInSelectedRangeProvider')
-final spentByCategoryInSelectedMonthProvider = spentByCategoryInSelectedRangeProvider;
-
-@Deprecated('Use topCategoriesInSelectedRangeProvider')
-final topCategoriesInSelectedMonthProvider = topCategoriesInSelectedRangeProvider;
-
-@Deprecated('Use periodOverPeriodProvider')
-typedef MonthOverMonth = PeriodOverPeriod;
-
-@Deprecated('Use periodOverPeriodProvider')
-final monthOverMonthProvider = periodOverPeriodProvider;

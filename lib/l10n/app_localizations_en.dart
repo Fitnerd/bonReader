@@ -251,13 +251,14 @@ class AppLocalizationsEn extends AppLocalizations {
     final intl.NumberFormat minutesNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);
     final String minutesString = minutesNumberFormat.format(minutes);
+
     String _temp0 = intl.Intl.pluralLogic(
       minutes,
       locale: localeName,
-      one: '1 minute',
       other: '$minutesString minutes',
+      one: '1 minute',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -487,10 +488,10 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      one: '1 expense',
       other: '$count expenses',
+      one: '1 expense',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
@@ -498,10 +499,10 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      one: '1 item',
       other: '$count items',
+      one: '1 item',
     );
-    return _temp0;
+    return '$_temp0';
   }
 
   @override
