@@ -1,9 +1,25 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../domain/entities/user_auth.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/database/schema.dart';
 import '../datasources/secure_storage_service.dart';
+
+/// Resolver fuer die SQLCipher-Datei der App. Existiert ausschliesslich
+/// als Konstruktor-Hook, damit Unit-Tests, die mit einer In-Memory-DB
+/// laufen, beim Reset keinen path_provider-Channel brauchen — sie
+/// uebergeben einfach `() async => null`.
+typedef DatabaseFileResolver = Future<File?> Function();
+
+Future<File?> _defaultDatabaseFileResolver() async {
+  final dir = await getApplicationDocumentsDirectory();
+  return File(p.join(dir.path, AppConstants.databaseFileName));
+}
 
 /// Auth-Repository-Implementierung im Biometrie-Only-Modell.
 ///
@@ -16,11 +32,15 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required Database db,
     required SecureStorageService storage,
+    DatabaseFileResolver? databaseFileResolver,
   })  : _db = db,
-        _storage = storage;
+        _storage = storage,
+        _databaseFileResolver =
+            databaseFileResolver ?? _defaultDatabaseFileResolver;
 
   final Database _db;
   final SecureStorageService _storage;
+  final DatabaseFileResolver _databaseFileResolver;
 
   @override
   Future<bool> isSetupComplete() async {
@@ -73,17 +93,31 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> resetAccount() async {
-    // Alle Daten in einer Transaktion loeschen, damit bei einem Crash
-    // dazwischen kein inkonsistenter Zwischenzustand zurueckbleibt.
-    await _db.transaction((txn) async {
-      await txn.delete(DbTables.expenseItems);
-      await txn.delete(DbTables.expenses);
-      await txn.delete(DbTables.budgets);
-      await txn.delete(DbTables.categories);
-      await txn.delete(DbTables.auth);
-    });
-    // Secure Storage komplett leeren - inklusive DB-Passphrase, sodass
-    // beim naechsten Start eine neue erzeugt wird.
+    // 1. DB schliessen, damit das Filehandle frei ist und Schritt 3 die
+    //    Datei tatsaechlich loeschen kann. `appDatabaseProvider` haelt
+    //    dieselbe `Database`-Instanz; sein `onDispose(db.close)` ist
+    //    nach `ref.invalidate(...)` durch den `db.isOpen`-Check
+    //    idempotent.
+    if (_db.isOpen) {
+      await _db.close();
+    }
+    // 2. Secure Storage zuerst wipen — Setup-Marker und DB-Passphrase
+    //    sind weg, bevor die DB-Datei geloescht wird. Stirbt der Prozess
+    //    hier dazwischen, fuehrt der naechste Start sauber durchs Setup;
+    //    die alte (mit alter Passphrase verschluesselte) Datei kann nicht
+    //    mehr fuer „setup ist ja schon durch" gehalten werden.
     await _storage.wipeAll();
+    // 3. DB-Datei vom Disk loeschen. Best-effort: bei Fehlern hier hat
+    //    Schritt 2 bereits den Setup-Marker entfernt; der naechste
+    //    Setup-Flow generiert eine neue Passphrase und der Anwender ist
+    //    nicht im "App ist gebricked"-Zustand.
+    try {
+      final file = await _databaseFileResolver();
+      if (file != null && await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // bewusst geschluckt: Reset-UI hat schon das Wichtigste erledigt.
+    }
   }
 }

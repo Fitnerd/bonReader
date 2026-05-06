@@ -1,4 +1,5 @@
-import 'package:bonbudget/data/datasources/database/schema.dart';
+import 'dart:io';
+
 import 'package:bonbudget/data/repositories/auth_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,7 +21,15 @@ void main() {
       final db = await openInMemoryTestDb();
       addTearDown(db.close);
       storage = FakeSecureStorageService();
-      repo = AuthRepositoryImpl(db: db, storage: storage);
+      repo = AuthRepositoryImpl(
+        db: db,
+        storage: storage,
+        // In-Memory-DB hat keine Datei auf Disk — Resolver gibt null
+        // zurueck, damit `resetAccount()` keinen path_provider-Channel
+        // braucht (waere im Flutter-Test ohne Stub eine MissingPlugin-
+        // Exception).
+        databaseFileResolver: () async => null,
+      );
     });
 
     test('isSetupComplete = false bevor irgendetwas passiert', () async {
@@ -58,29 +67,52 @@ void main() {
       expect(await repo.getAuth(), isNull);
     });
 
-    test('resetAccount loescht alle Tabellen und den Secure Storage',
-        () async {
-      // Setup + Beispieldaten anlegen
+    test('resetAccount schliesst DB, wiped Secure Storage und ruft den '
+        'File-Resolver auf', () async {
+      // Setup-Marker und DB-Passphrase setzen, damit wir nach dem Wipe
+      // sauber pruefen koennen, dass beides geloescht wurde.
       await repo.completeSetup();
-      // Kategorie-Zeile, damit wir was zum Loeschen haben
-      final db = await openInMemoryTestDb();
-      addTearDown(db.close);
-      await db.insert(DbTables.categories, <String, Object?>{
-        CategoryCols.id: 'c1',
-        CategoryCols.name: 'X',
-        CategoryCols.colorValue: 0,
-        CategoryCols.iconCodePoint: 0xe000,
-        CategoryCols.isDefault: 0,
-        CategoryCols.isHidden: 0,
-        CategoryCols.createdAt: 0,
-      });
+      await storage.writeDbPassphrase('test-passphrase');
 
-      await repo.resetAccount();
+      // Eigenen Resolver injizieren, um sicherzustellen, dass `resetAccount`
+      // ihn aufruft (das ist die Stelle, an der in Production die DB-Datei
+      // vom Disk verschwindet).
+      var resolverCalled = 0;
+      final repoWithResolver = AuthRepositoryImpl(
+        db: await openInMemoryTestDb(),
+        storage: storage,
+        databaseFileResolver: () async {
+          resolverCalled += 1;
+          return null;
+        },
+      );
 
-      expect(await repo.isSetupComplete(), isFalse);
-      expect(await repo.getAuth(), isNull);
+      await repoWithResolver.resetAccount();
+
+      // Nach Reset: Storage komplett leer.
       expect(await storage.readSetupComplete(), isFalse);
       expect(await storage.readDbPassphrase(), isNull);
+      // Der File-Resolver wurde genau einmal aufgerufen (= Production-Pfad
+      // wuerde die DB-Datei loeschen).
+      expect(resolverCalled, 1);
+    });
+
+    test('resetAccount schluckt Fehler aus dem File-Resolver', () async {
+      // Production-Verhalten: wenn path_provider in irgendeiner Form
+      // schief geht (z. B. Berechtigung), darf der Reset trotzdem nicht
+      // werfen — der Storage-Wipe ist die zentrale Sicherheitsmassnahme.
+      await repo.completeSetup();
+
+      final repoWithFailingResolver = AuthRepositoryImpl(
+        db: await openInMemoryTestDb(),
+        storage: storage,
+        databaseFileResolver: () async {
+          throw const FileSystemException('boom');
+        },
+      );
+
+      await expectLater(repoWithFailingResolver.resetAccount(), completes);
+      expect(await storage.readSetupComplete(), isFalse);
     });
 
     test('isSetupComplete pruft Marker UND DB-Zeile', () async {
